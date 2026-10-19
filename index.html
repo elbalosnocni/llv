@@ -3,42 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tra Cứu Lịch Ca Kíp</title>
-    <!-- Thêm Tailwind CSS để giao diện đẹp nhanh và dùng FullCalendar -->
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
+    <title>Hệ Thống Ca Kíp Công Nhân</title>
     <script src="https://tailwindcss.com"></script>
 </head>
-<body class="bg-gray-100 p-4">
-    <div class="max-w-md mx-auto bg-white p-4 rounded-xl shadow">
-        <h1 class="text-xl font-bold text-center mb-4 text-blue-600">📅 TRA CỨU LỊCH CA KÍP</h1>
+<body class="bg-slate-100 min-h-screen p-4 flex flex-col items-center">
+
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-6">
+        <h1 class="text-2xl font-bold text-center text-blue-600">📊 CỔNG TRA CỨU & ĐIỀU CA</h1>
         
-        <!-- Chọn Kíp -->
-        <div class="mb-4">
-            <label class="block font-medium mb-1">Chọn Kíp của bạn:</label>
-            <select id="groupSelect" class="w-full p-2 border rounded-lg shadow-sm">
-                <option value="Kíp A">Kíp A</option>
-                <option value="Kíp B">Kíp B</option>
-                <option value="Kíp C">Kíp C</option>
-            </select>
+        <!-- Form đăng nhập bằng Căn Cước -->
+        <div id="loginSection" class="space-y-3">
+            <label class="block font-medium text-gray-700">Nhập số Căn cước công dân:</label>
+            <div class="flex gap-2">
+                <input type="number" id="ccidInput" class="flex-1 border rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ví dụ: 051185000964">
+                <button onclick="traCuuCongNhan()" class="bg-blue-600 text-white px-5 rounded-xl font-medium hover:bg-blue-700 transition">Tra cứu</button>
+            </div>
+            <p id="errorMsg" class="text-red-500 text-sm hidden">⚠️ Không tìm thấy số căn cước này trên hệ thống!</p>
         </div>
 
-        <!-- Khu vực hiển thị Lịch -->
-        <div id="calendar" class="mt-4"></div>
+        <!-- Vùng hiển thị sau khi xác thực thành công -->
+        <div id="mainDashboard" class="hidden space-y-6 border-t pt-4">
+            <!-- Thẻ thông tin công nhân -->
+            <div class="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-4 text-white shadow-md">
+                <h3 class="font-bold text-lg" id="lblHoTen">---</h3>
+                <p class="text-sm opacity-90">Mã NV: <span id="lblMaNV">---</span> | Mã chấm công: <span id="lblMaChamCong">---</span></p>
+                <p class="text-sm opacity-90 mt-1">Phòng ban: <span id="lblPhongBan">---</span> (<span id="lblChucVu">---</span>)</p>
+            </div>
+
+            <!-- Khối Tính công / Chấm công nhanh -->
+            <div class="bg-slate-50 border rounded-xl p-4 space-y-3">
+                <h4 class="font-bold text-gray-800">🕒 Đi ca / Chấm công hàng ngày</h4>
+                <label class="block text-sm text-gray-600">Chọn chế độ ca hôm nay:</label>
+                <select id="loaiCaSelect" class="w-full border rounded-lg p-2 bg-white">
+                    <option value="Xoay ca (1-2-3)">Xoay ca (Ca 1, Ca 2, Ca 3)</option>
+                    <option value="Hành chính">Hành chính văn phòng</option>
+                    <option value="12H Ngày">Chế độ 12 Tiếng (Ngày)</option>
+                    <option value="12H Đêm">Chế độ 12 Tiếng (Đêm)</option>
+                </select>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button onclick="guiChamCong('VÀO CA')" class="bg-emerald-600 text-white py-3 rounded-lg font-bold hover:bg-emerald-700">VÀO CA 🟢</button>
+                    <button onclick="guiChamCong('RA CA')" class="bg-rose-600 text-white py-3 rounded-lg font-bold hover:bg-rose-700">RA CA 🔴</button>
+                </div>
+            </div>
+
+            <!-- Khối Đăng ký đổi ca trực -->
+            <div class="bg-slate-50 border rounded-xl p-4 space-y-3">
+                <h4 class="font-bold text-gray-800">🔄 Đăng ký đổi ca trực nhanh</h4>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Chọn ngày cần đổi:</label>
+                    <input type="date" id="txtNgayDoi" class="w-full border rounded-lg p-2 bg-white">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-600 mb-1">Nhập Mã NV người làm thay:</label>
+                    <input type="text" id="txtNVDoi" class="w-full border rounded-lg p-2 bg-white" placeholder="Ví dụ: CH018">
+                </div>
+                <button onclick="guiYeuCauDoiCa()" class="w-full bg-amber-500 text-white py-2.5 rounded-lg font-bold hover:bg-amber-600 transition">Gửi yêu cầu đổi ca</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            var calendarEl = document.getElementById('calendar');
-            var calendar = new FullCalendar.Calendar(calendarEl, {
-                initialView: 'dayGridMonth',
-                locale: 'vi',
-                events: [] // Dữ liệu lịch sẽ được nạp vào đây dựa trên kíp được chọn
-            });
-            calendar.render();
+        const API_URL = "https://script.google.com/macros/s/AKfycbzn4ymnmgcmSqrFS3wX0pmYmclCA31G4QCVw290QnrbHJfN0K71xvUOtsPskHLmxP9R/exec";
+        let userLogined = null;
+
+        function traCuuCongNhan() {
+            let ccid = document.getElementById("ccidInput").value;
+            if(!ccid) return;
             
-            // Xử lý logic thay đổi kíp làm việc và đổi màu sắc ca trực tại đây...
-        });
+            fetch(`${API_URL}?ccid=${ccid}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === "success") {
+                    userLogined = data;
+                    document.getElementById("errorMsg").classList.add("hidden");
+                    document.getElementById("mainDashboard").classList.remove("hidden");
+                    
+                    document.getElementById("lblHoTen").innerText = data.hoten;
+                    document.getElementById("lblMaNV").innerText = data.manv;
+                    document.getElementById("lblMaChamCong").innerText = data.machacong;
+                    document.getElementById("lblPhongBan").innerText = data.phongban;
+                    document.getElementById("lblChucVu").innerText = data.chucvu;
+                } else {
+                    document.getElementById("errorMsg").classList.remove("hidden");
+                    document.getElementById("mainDashboard").classList.add("hidden");
+                }
+            });
+        }
+
+        function guiChamCong(type) {
+            let loaiCa = document.getElementById("loaiCaSelect").value;
+            let payload = {
+                action: "cham_cong",
+                manv: userLogined.manv,
+                hoten: userLogined.hoten,
+                loaiCa: loaiCa,
+                type: type
+            };
+
+            fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
+            .then(res => res.json())
+            .then(res => alert(res.msg));
+        }
+
+        function guiYeuCauDoiCa() {
+            let ngayDoi = document.getElementById("txtNgayDoi").value;
+            let maNVDoi = document.getElementById("txtNVDoi").value;
+            if(!ngayDoi || !maNVDoi) return alert("Vui lòng điền đầy đủ ngày cần đổi và mã người thay thế!");
+
+            let payload = {
+                action: "doi_ca",
+                manv: userLogined.manv,
+                hoten: userLogined.hoten,
+                ngayDoi: ngayDoi,
+                maNVDoi: maNVDoi
+            };
+
+            fetch(API_URL, { method: "POST", body: JSON.stringify(payload) })
+            .then(res => res.json())
+            .then(res => alert(res.msg));
+        }
     </script>
 </body>
 </html>
