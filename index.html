@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra Cứu Lịch Ca Kíp</title>
+    <!-- Thêm Tailwind CSS để giao diện đẹp nhanh và dùng FullCalendar -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-md mx-auto bg-white p-4 rounded-xl shadow">
+        <h1 class="text-xl font-bold text-center mb-4 text-blue-600">📅 TRA CỨU LỊCH CA KÍP</h1>
+        
+        <!-- Chọn Kíp -->
+        <div class="mb-4">
+            <label class="block font-medium mb-1">Chọn Kíp của bạn:</label>
+            <select id="groupSelect" class="w-full p-2 border rounded-lg shadow-sm">
+                <option value="Kíp A">Kíp A</option>
+                <option value="Kíp B">Kíp B</option>
+                <option value="Kíp C">Kíp C</option>
+            </select>
+        </div>
+
+        <!-- Khu vực hiển thị Lịch -->
+        <div id="calendar" class="mt-4"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'vi',
+                events: [] // Dữ liệu lịch sẽ được nạp vào đây dựa trên kíp được chọn
+            });
+            calendar.render();
+            
+            // Xử lý logic thay đổi kíp làm việc và đổi màu sắc ca trực tại đây...
+        });
+    </script>
+</body>
+</html>
