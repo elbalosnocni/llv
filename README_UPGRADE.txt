@@ -33,3 +33,18 @@ LƯU Ý QUAN TRỌNG
 - Với dữ liệu chấm công từ máy, hãy ghép theo Mã chấm công (cột C trong ví dụ ảnh), không dùng Mã NV vì Mã NV có thể thay đổi theo tháng/bộ phận.
 - Nếu nhập file Excel, hãy kiểm tra dòng tiêu đề có cột Mã chấm công/Attendance Code. Nếu không có, trường này để trống và cần bổ sung trước khi lưu lịch chính thức.
 - Bản ghi chấm công và đổi ca giữ tương thích trường manv cũ, đồng thời hỗ trợ machacong/maChamCong.
+
+QUY TRÌNH BỘ PHẬN GỬI DUYỆT (BỔ SUNG)
+1. Trong Apps Script > Project Settings > Script Properties, cấu hình:
+   ADMIN_TOKEN = mã bí mật của HR/Admin.
+   DEPT_TOKENS = JSON ánh xạ tên phòng ban đúng như cột Phòng ban trong Excel sang mã riêng của phòng ban. Ví dụ cấu trúc: {"Sản xuất":"ma-rieng-1","Kỹ thuật":"ma-rieng-2"}
+   Hãy thay toàn bộ mã ví dụ bằng mã dài, khó đoán; không dùng chung mã giữa các bộ phận.
+2. Bộ phận mở trang, nhập URL /exec, tải lịch tháng từ Sheets hoặc nhập Excel, nhập Mã bộ phận rồi bấm “Gửi lịch bộ phận”. Backend chỉ nhận nhân viên có cột Phòng ban khớp chính xác với phòng ban của mã được cấp.
+3. HR/Admin kiểm tra lịch, nhập ADMIN_TOKEN và bấm “Duyệt & công bố”. Các bộ phận đã gửi trong tháng đó được cập nhật vào lịch chính thức; lịch của các bộ phận chưa gửi được giữ nguyên.
+4. Công nhân chỉ cần mở trang và bấm “Tải lịch từ Sheets”; không cần mã bộ phận hay mã quản trị. Chỉ dữ liệu đã công bố trong LICH_THANG mới xuất hiện ở chế độ tra cứu.
+5. Mỗi lần sửa Code.gs, triển khai phiên bản Web App mới. Không gửi ADMIN_TOKEN hoặc DEPT_TOKENS cho công nhân.
+
+SHEET TỰ TẠO THÊM
+- LICH_GUI_DUYET: lưu lịch gửi lên, trạng thái Chờ duyệt/Đã duyệt và dữ liệu từng lần gửi.
+- LICH_THANG: lịch chính thức công nhân tra cứu.
+Lưu ý: quyền truy cập Web App vẫn do cấu hình triển khai Apps Script quyết định. Các mã token là lớp phân quyền nghiệp vụ, không thay thế chính sách bảo mật Google Workspace.
