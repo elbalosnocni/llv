@@ -1,231 +1,33 @@
-<!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Lịch làm việc tháng | LLV</title>
-<script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<style>
-:root{color-scheme:light} body{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}.table-wrap{overflow:auto;max-height:68vh}.schedule{border-collapse:separate;border-spacing:0;min-width:max-content}.schedule th,.schedule td{border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:5px;text-align:center}.schedule thead th{position:sticky;top:0;z-index:5;background:#f1f5f9}.schedule .sticky-name{position:sticky;left:0;z-index:4;background:white;text-align:left;min-width:210px}.schedule .sticky-id{position:sticky;left:210px;z-index:4;background:white;min-width:92px}.schedule thead .sticky-name,.schedule thead .sticky-id{z-index:7;background:#e2e8f0}.day-cell{min-width:54px}.day-cell select{width:100%;min-width:50px;border:1px solid transparent;border-radius:6px;padding:7px 2px;background:transparent;font-size:12px;font-weight:650;cursor:pointer}.day-cell select:focus{outline:2px solid #2563eb;background:white}.shift-1{background:#dcfce7;color:#166534}.shift-2{background:#fef3c7;color:#92400e}.shift-3{background:#fee2e2;color:#991b1b}.shift-off{background:#e2e8f0;color:#475569}.shift-hc{background:#dbeafe;color:#1d4ed8}.shift-other{background:#f3e8ff;color:#6b21a8}.weekend{background:#f8fafc}.small-label{font-size:11px;color:#64748b}
-@page{size:A3 landscape;margin:8mm}@media print{.no-print{display:none!important}body{background:white!important;padding:0!important}.table-wrap{max-height:none;overflow:visible}.schedule{font-size:9px}.schedule th,.schedule td{padding:2px}.day-cell{min-width:26px}.day-cell select{appearance:none;border:0;padding:2px;font-size:9px}.schedule thead th{position:static}.schedule .sticky-name{position:static}}
-</style></head>
-<body class="bg-slate-100 text-slate-800 min-h-screen">
-<header class="bg-gradient-to-r from-slate-900 to-blue-900 text-white px-4 py-5 md:px-8"><div class="max-w-screen-2xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3"><div><div class="text-xs uppercase tracking-[.2em] text-blue-200">Liwayway · HR / Production</div><h1 class="text-2xl md:text-3xl font-bold mt-1">Lập lịch bộ phận · Tổng hợp · Tra cứu</h1><p class="text-sm text-blue-100 mt-1">Bộ phận lập và gửi lịch; HR duyệt công bố; công nhân tra cứu lịch chính thức theo tháng.</p></div><div class="flex gap-2 no-print"><button id="btnImport" class="rounded-xl bg-white text-slate-900 px-4 py-2 font-semibold">Tải Excel lên</button><input id="fileInput" type="file" accept=".xlsx,.xls,.csv" class="hidden"><button id="btnExport" class="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 font-semibold">Xuất Excel</button><button id="btnLoadCloud" class="rounded-xl bg-blue-500 px-4 py-2 font-semibold">Tải lịch từ Sheets</button></div></div></header>
-<main class="max-w-screen-2xl mx-auto p-3 md:p-6 space-y-4">
- <!-- Thêm cụm chuyển đổi phân hệ này vào dưới Header trang web -->
-<div class="nav-tabs" style="display: flex; gap: 10px; margin-bottom: 20px;">
-    <button onclick="switchRole('worker')" id="btnWorker" class="active">👷 Công Nhân Tra Cứu</button>
-    <button onclick="switchRole('dept')" id="btnDept">🏢 Bộ Phận Nhập Lịch</button>
-    <button onclick="switchRole('admin')" id="btnAdmin">⚙️ Admin Quản Lý Ca Kíp</button>
-</div>
-  
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-3"><div class="bg-white rounded-2xl p-4 shadow-sm"><div class="small-label">Nhân viên hiển thị</div><div id="statEmployees" class="text-2xl font-bold mt-1">0</div></div><div class="bg-white rounded-2xl p-4 shadow-sm"><div class="small-label">Ngày trong tháng</div><div id="statDays" class="text-2xl font-bold mt-1">31</div></div><div class="bg-white rounded-2xl p-4 shadow-sm"><div class="small-label">Ô lịch đã phân ca</div><div id="statAssigned" class="text-2xl font-bold mt-1">0</div></div><div class="bg-white rounded-2xl p-4 shadow-sm"><div class="small-label">Thay đổi chưa xuất</div><div id="statChanges" class="text-2xl font-bold mt-1">0</div></div></div>
-<section class="bg-white rounded-2xl p-4 shadow-sm space-y-3 no-print"><div class="flex flex-col lg:flex-row lg:items-end gap-3"><div><label class="block text-xs font-semibold text-slate-500 mb-1">Tháng</label><input id="monthInput" type="month" class="border rounded-xl px-3 py-2" value="2026-10"></div><div class="flex-1"><label class="block text-xs font-semibold text-slate-500 mb-1">Tìm nhân viên</label><input id="searchInput" placeholder="Nhập họ tên, phòng ban, bộ phận, mã NV..." class="w-full border rounded-xl px-3 py-2"></div><div><label class="block text-xs font-semibold text-slate-500 mb-1">Phòng ban</label><select id="deptFilter" class="border rounded-xl px-3 py-2 min-w-40"><option value="">Tất cả phòng ban</option></select></div><div><label class="block text-xs font-semibold text-slate-500 mb-1">Lọc ca</label><select id="shiftFilter" class="border rounded-xl px-3 py-2 min-w-36"><option value="">Tất cả ca</option><option>Ca 1</option><option>Ca 2</option><option>Ca 3</option><option>HC</option><option>OFF</option><option>AL</option></select></div><button id="btnReset" class="border rounded-xl px-4 py-2 hover:bg-slate-50">Xóa lọc</button><button id="btnPrint" class="border rounded-xl px-4 py-2 hover:bg-slate-50">In lịch</button></div><div class="grid grid-cols-1 md:grid-cols-3 gap-2 border-t pt-3"></label><label class="text-xs">Mã bộ phận (gửi lịch duyệt)<input id="departmentToken" type="password" class="block w-full border rounded-lg p-2 mt-1" placeholder="Mã do HR cấp cho bộ phận"></label><label class="text-xs">Mã quản trị (chỉ HR/Admin)<input id="adminToken" type="password" class="block w-full border rounded-lg p-2 mt-1" placeholder="Mã quản trị"></label><div class="flex flex-wrap gap-2 items-end"><button id="btnSubmitDept" class="rounded-xl bg-amber-500 text-white px-3 py-2">Gửi lịch bộ phận</button><button id="btnPublish" class="rounded-xl bg-emerald-700 text-white px-3 py-2">Duyệt & công bố</button><button id="btnUndo" class="border rounded-xl px-3 py-2">Hoàn tác</button><button id="btnCopyDay" class="border rounded-xl px-3 py-2">Sao chép lịch ngày</button></div></div><div class="flex flex-wrap gap-2 text-xs"><span class="rounded-lg px-2 py-1 shift-1">Ca 1</span><span class="rounded-lg px-2 py-1 shift-2">Ca 2</span><span class="rounded-lg px-2 py-1 shift-3">Ca 3</span><span class="rounded-lg px-2 py-1 shift-hc">HC / hành chính</span><span class="rounded-lg px-2 py-1 shift-off">OFF / nghỉ</span><span class="rounded-lg px-2 py-1 shift-other">AL / phép / ký hiệu khác</span><span class="text-slate-500 self-center ml-1">Chọn trực tiếp trong ô để đổi ca. Bộ phận gửi duyệt; HR/Admin duyệt để công bố lịch chính thức.</span></div></section>
-<section class="bg-white rounded-2xl shadow-sm overflow-hidden"><div class="px-4 py-3 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2"><div><h2 id="tableTitle" class="font-bold text-lg">Lịch làm việc tháng 10/2026</h2><p id="sourceLabel" class="text-xs text-slate-500">Đang dùng dữ liệu mẫu. Tải bảng Excel lịch làm việc để bắt đầu.</p></div><div class="flex gap-2 no-print"><button id="btnAdd" class="rounded-lg border px-3 py-2 text-sm hover:bg-slate-50">+ Thêm nhân viên</button><button id="btnClear" class="rounded-lg border border-rose-200 text-rose-700 px-3 py-2 text-sm hover:bg-rose-50">Xóa dữ liệu mẫu</button></div></div><div id="emptyState" class="hidden p-10 text-center"><div class="text-4xl mb-3">📅</div><h3 class="font-bold text-lg">Chưa có lịch để hiển thị</h3><p class="text-slate-500 text-sm mt-1">Bấm “Tải Excel lên” và chọn file lịch làm việc theo tháng.</p><button onclick="document.getElementById('fileInput').click()" class="mt-4 bg-blue-600 text-white rounded-xl px-4 py-2 no-print">Chọn file Excel</button></div><div id="tableWrap" class="table-wrap"><table id="scheduleTable" class="schedule w-full"></table></div></section>
-<div class="text-xs text-slate-500 px-1">Lưu ý: công cụ này chỉnh sửa trên trình duyệt và xuất ra file Excel mới; không tự ghi đè file gốc hoặc Google Sheets. Giữ lại file gốc trước khi cập nhật lịch chính thức.</div>
-<!-- Khung xác thực mã bảo mật khi nhấn vào quyền Bộ phận / Admin -->
-<div id="authArea" style="display: none; margin-bottom: 15px; padding: 10px; background: #f0f2f5; border-radius: 5px;">
-    <span id="authTitle">Nhập mã xác thực:</span>
-    <input type="password" id="rolePassword" placeholder="Nhập mã tại đây...">
-    <button onclick="verifyRole()">Xác nhận</button>
-<!-- Phân vùng quản trị ca kíp (Chỉ hiển thị khi đăng nhập quyền Admin thành công) -->
-<div id="adminPanel" style="display: none; margin-top: 30px; padding: 20px; border: 2px dashed #ccc; background: #fafafa;">
-    <h3>⚙️ BẢNG QUẢN LÝ THÊM BỚT CA KÍP (ADMIN ONLY)</h3>
-    <table id="tableCaKip" border="1" style="width:100%; text-align:left; border-collapse: collapse; margin-bottom: 15px;">
-        <thead>
-            <tr style="background:#e6f7ff">
-                <th>Mã Ca</th>
-                <th>Tên Ca</th>
-                <th>Giờ làm việc</th>
-                <th>Màu hiển thị</th>
-                <th>Hành động</th>
-            </tr>
-        </thead>
-        <tbody id="caKipList">
-            <!-- Dữ liệu ca kíp tự động load từ Google Sheets lên đây -->
-        </tbody>
-    </table>
-    <button onclick="addNewRowCaKip()" style="background: #52c41a; color:#fff; padding: 5px 10px; border:none; cursor:pointer;">+ Thêm Ca Mới</button>
-    <button onclick="saveCaKipToSheets()" style="background: #1890ff; color:#fff; padding: 5px 10px; border:none; cursor:pointer;">💾 Lưu cấu hình vào Sheets</button>
-</div>
-  
-</div>
-</main>
-<script>
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>User Page</title>
+    <!-- Tối ưu: Dùng Bootstrap CDN để giao diện đẹp và nhẹ -->
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <style>
+      body { padding: 20px; font-family: Arial, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="p-5 mb-4 bg-light rounded-3">
+        <h1 class="display-5 fw-bold">Chào mừng đến với Trang Chủ</h1>
+        <p class="col-md-8 fs-4">Giao diện dành riêng cho khách hàng và người dùng phổ thông.</p>
+        <!-- Đường dẫn chuyển nhanh sang trang Admin để bạn kiểm tra -->
+        <a id="adminLink" class="btn btn-primary btn-lg" href="#" target="_top">Truy cập Admin</a>
+      </div>
+    </div>
 
-const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzn4ymnmgcmSqrFS3wX0pmYmclCA31G4QCVw290QnrbHJfN0K71xvUOtsPskHLmxP9R/exec";
-  
-const SHIFT_OPTIONS=['','Ca 1','Ca 2','Ca 3','HC','HC7','HC8','OFF','AL','N','1','2','3','P','L','OT'];
-let currentRole = 'worker'; // Mặc định là công nhân vào tra cứu
-
-function switchRole(role) {
-    if (role === 'worker') {
-        currentRole = 'worker';
-        document.getElementById('authArea').style.display = 'none';
-        applyRolePermissions();
-    } else if (role === 'dept') {
-        // Yêu cầu điền mã bộ phận
-        document.getElementById('authArea').style.display = 'block';
-        document.getElementById('authTitle').innerText = "Nhập mã Tổ trưởng / Bộ phận:";
-        document.getElementById('rolePassword').value = "";
-        document.getElementById('rolePassword').focus();
-        currentRole = 'pending_dept';
-    } else if (role === 'admin') {
-        // Yêu cầu điền mã admin
-        document.getElementById('authArea').style.display = 'block';
-        document.getElementById('authTitle').innerText = "Nhập mã bảo mật Admin (HR):";
-        document.getElementById('rolePassword').value = "";
-        document.getElementById('rolePassword').focus();
-        currentRole = 'pending_admin';
-    }
-}
-
-function verifyRole() {
-    const inputPwd = document.getElementById('rolePassword').value;
-    
-    if (currentRole === 'pending_dept') {
-        // Ví dụ đặt mã bộ phận cố định là BP2026 (Bạn có thể đổi hoặc check qua API Sheets)
-        if (inputPwd === "BP2026") { 
-            currentRole = 'dept';
-            alert("Đăng nhập quyền Bộ phận thành công!");
-            document.getElementById('authArea').style.display = 'none';
-            applyRolePermissions();
-        } else {
-            alert("Sai mã bộ phận!");
-        }
-    } else if (currentRole === 'pending_admin') {
-        // Ví dụ đặt mã admin cố định là ADMIN2026
-        if (inputPwd === "ADMIN2026") {
-            currentRole = 'admin';
-            alert("Đăng nhập quyền Admin thành công!");
-            document.getElementById('authArea').style.display = 'none';
-            applyRolePermissions();
-            loadCaKipConfig(); // Tải cấu hình ca kíp từ Sheet về bảng Admin
-        } else {
-            alert("Mã bảo mật Admin không chính xác!");
-        }
-    }
-}
-
-// Hàm tắt/mở tính năng tùy theo quyền truy cập
-function applyRolePermissions() {
-    // Cập nhật trạng thái màu nút bấm Tab
-    document.getElementById('btnWorker').className = currentRole === 'worker' ? 'active' : '';
-    document.getElementById('btnDept').className = currentRole === 'dept' ? 'active' : '';
-    document.getElementById('btnAdmin').className = currentRole === 'admin' ? 'active' : '';
-
-    const areaChinhSuaLich = document.querySelector('.action-buttons-zone'); // Khu vực chứa nút Gửi, Duyệt, Hoàn tác
-    const adminPanel = document.getElementById('adminPanel');
-
-    if (currentRole === 'worker') {
-        // 👷 CHẾ ĐỘ CÔNG NHÂN: Khóa toàn bộ tính năng chỉnh sửa, chỉ cho xem và tra cứu tên/phòng ban
-        if(areaChinhSuaLich) areaChinhSuaLich.style.display = 'none';
-        adminPanel.style.display = 'none';
-        // Vô hiệu hóa việc click vào ô lịch để đổi ca làm việc
-        disableCalendarEditing(true);
-    } 
-    else if (currentRole === 'dept') {
-        // 🏢 CHẾ ĐỘ BỘ PHẬN: Được mở tính năng xếp ca lịch, ấn gửi duyệt, nhưng ẩn bảng cấu hình hệ thống của Admin
-        if(areaChinhSuaLich) areaChinhSuaLich.style.display = 'block';
-        adminPanel.style.display = 'none';
-        disableCalendarEditing(false);
-    } 
-    else if (currentRole === 'admin') {
-        // ⚙️ CHẾ ĐỘ ADMIN: Mở toàn quyền xếp ca, phê duyệt chính thức lịch toàn công ty và mở bảng thêm bớt ca kíp
-        if(areaChinhSuaLich) areaChinhSuaLich.style.display = 'block';
-        adminPanel.style.display = 'block';
-        disableCalendarEditing(false);
-    }
-}
-
-// Chức năng nạp cấu hình ca kíp động của Admin từ Sheets lên giao diện web
-function loadCaKipConfig() {
-    fetch(`${GAS_WEB_APP_URL}?action=getCaKip`)
-    .then(res => res.json())
-    .then(data => {
-        const tbody = document.getElementById('caKipList');
-        tbody.innerHTML = "";
-        data.forEach(ca => {
-            tbody.innerHTML += `
-                <tr>
-                    <td><input type="text" value="${ca['Mã Ca']}" class="ca-ma" style="width:60px"></td>
-                    <td><input type="text" value="${ca['Tên Ca']}" class="ca-ten"></td>
-                    <td><input type="text" value="${ca['Giờ Bắt Đầu']}-${ca['Giờ Kết Thúc']}" class="ca-gio"></td>
-                    <td><input type="color" value="${ca['Màu Sắc'] || '#ffffff'}" class="ca-mau"></td>
-                    <td><button onclick="this.parentElement.parentElement.remove()" style="color:red">Xóa</button></td>
-                </tr>
-            `;
-        });
-    });
-}
-
-function addNewRowCaKip() {
-    const tbody = document.getElementById('caKipList');
-    tbody.innerHTML += `
-        <tr>
-            <td><input type="text" placeholder="C4" class="ca-ma" style="width:60px"></td>
-            <td><input type="text" placeholder="Ca Hành Chính" class="ca-ten"></td>
-            <td><input type="text" placeholder="08:00-17:00" class="ca-gio"></td>
-            <td><input type="color" value="#1890ff" class="ca-mau"></td>
-            <td><button onclick="this.parentElement.parentElement.remove()" style="color:red">Xóa</button></td>
-        </tr>
-    `;
-}
-
-function saveCaKipToSheets() {
-    const rows = document.querySelectorAll('#caKipList tr');
-    let dynamicCaKipData = [];
-    
-    rows.forEach(row => {
-        const timeSplit = row.querySelector('.ca-gio').value.split('-');
-        dynamicCaKipData.push({
-            MaCa: row.querySelector('.ca-ma').value,
-            TenCa: row.querySelector('.ca-ten').value,
-            GioBatDau: timeSplit[0] || "",
-            GioKetThuc: timeSplit[1] || "",
-            MauSac: row.querySelector('.ca-mau').value
-        });
-    });
-
-    // Thực hiện đẩy dữ liệu mảng ca kíp mới cấu hình lên Google Sheets qua phương thức POST
-    fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'saveCaKip', data: dynamicCaKipData })
-    })
-    .then(res => res.json())
-    .then(res => {
-        if(res.status === "Success") {
-            alert("Đã cập nhật danh sách Ca Kíp mới lên hệ thống thành công!");
-            // Gọi lại hàm vẽ các nút bấm chọn ca (C1, C2, C3) trên giao diện dựa theo data mới
-            updateCalendarBadges(dynamicCaKipData); 
-        }
-    });
-}
-  
-let employees=[], changes=0, sourceName='Dữ liệu mẫu', currentMonth='2026-10', originalSheetRows=null, workbook=null, undoStack=[];
-const API_DEFAULT='';
-const $=id=>document.getElementById(id);
-function demo(){employees=[{id:'NV001',maChamCong:'99999',name:'Nguyễn Văn An',dept:'Sản xuất',section:'Đóng gói',position:'Công nhân',shifts:{'2026-10-01':'Ca 1','2026-10-02':'Ca 1','2026-10-03':'OFF','2026-10-04':'Ca 2'}},{id:'NV002',maChamCong:'7123',name:'Trần Thị Bình',dept:'Sản xuất',section:'Đóng gói',position:'Công nhân',shifts:{'2026-10-01':'Ca 2','2026-10-02':'Ca 2','2026-10-03':'OFF','2026-10-04':'Ca 3'}},{id:'NV003',maChamCong:'7121',name:'Lê Minh Cường',dept:'Kỹ thuật',section:'Bảo trì',position:'Kỹ thuật viên',shifts:{'2026-10-01':'HC8','2026-10-02':'HC8','2026-10-03':'OFF'}}];sourceName='Dữ liệu mẫu';changes=0;render();}
-function daysInMonth(ym){let [y,m]=ym.split('-').map(Number);return new Date(y,m,0).getDate()}
-function keyDate(d){return `${currentMonth}-${String(d).padStart(2,'0')}`}
-function shiftClass(v){v=String(v||'').toUpperCase();if(!v)return '';if(v.includes('OFF')||v==='N'||v==='P')return 'shift-off';if(v.includes('CA 1')||v==='1'||v.startsWith('1*'))return 'shift-1';if(v.includes('CA 2')||v==='2'||v.startsWith('2+'))return 'shift-2';if(v.includes('CA 3')||v==='3')return 'shift-3';if(v.startsWith('HC')||v==='H')return 'shift-hc';return 'shift-other'}
-function render(){currentMonth=$('monthInput').value||currentMonth;const n=daysInMonth(currentMonth);$('tableTitle').textContent=`Lịch làm việc tháng ${currentMonth.slice(5,7)}/${currentMonth.slice(0,4)}`;$('statDays').textContent=n;const q=$('searchInput').value.trim().toLocaleLowerCase('vi'),dep=$('deptFilter').value,sf=$('shiftFilter').value;
-let depts=[...new Set(employees.map(e=>e.dept).filter(Boolean))].sort();let old=$('deptFilter').value;$('deptFilter').innerHTML='<option value="">Tất cả phòng ban</option>'+depts.map(d=>`<option ${d===old?'selected':''}>${esc(d)}</option>`).join('');
-let filtered=employees.filter(e=>{let hay=[e.id,e.name,e.dept,e.section,e.position].join(' ').toLocaleLowerCase('vi');return (!q||hay.includes(q))&&(!dep||e.dept===dep)&&(!sf||Array.from({length:n},(_,i)=>e.shifts[keyDate(i+1)]||'').some(v=>String(v).toUpperCase().includes(sf.toUpperCase())))});
-$('statEmployees').textContent=filtered.length;$('statAssigned').textContent=filtered.reduce((s,e)=>s+Array.from({length:n},(_,i)=>e.shifts[keyDate(i+1)]||'').filter(Boolean).length,0);$('statChanges').textContent=changes;$('emptyState').classList.toggle('hidden',filtered.length>0);$('tableWrap').classList.toggle('hidden',filtered.length===0);
-let html='<thead><tr><th class="sticky-name">Họ tên</th><th class="sticky-id">Mã NV</th><th>Phòng ban</th>';for(let d=1;d<=n;d++){let dt=new Date(+currentMonth.slice(0,4),+currentMonth.slice(5,7)-1,d);html+=`<th class="day-cell ${[0,6].includes(dt.getDay())?'weekend':''}"><div>${d}</div><div class="small-label">${['CN','T2','T3','T4','T5','T6','T7'][dt.getDay()]}</div></th>`}html+='<th>Tổng ca</th></tr></thead><tbody>';
-filtered.forEach((e,idx)=>{let empIndex=employees.indexOf(e);let assigned=0;html+='<tr>'; html+=`<td class="sticky-name"><div class="font-semibold text-sm">${esc(e.name||'Chưa có tên')}</div><div class="small-label">${esc(e.section||'')}</div></td><td class="sticky-id text-xs">${esc(e.id||'')}</td><td class="text-xs min-w-28">${esc(e.dept||'')}</td>`;for(let d=1;d<=n;d++){let k=keyDate(d),v=e.shifts[k]||'';if(v)assigned++;let dt=new Date(+currentMonth.slice(0,4),+currentMonth.slice(5,7)-1,d);html+=`<td class="day-cell ${[0,6].includes(dt.getDay())?'weekend':''}"><select aria-label="${esc(e.name)} ngày ${d}" class="${shiftClass(v)}" data-emp="${empIndex}" data-date="${k}" onchange="changeShift(this)">${SHIFT_OPTIONS.map(o=>`<option value="${esc(o)}" ${o===v?'selected':''}>${o||'—'}</option>`).join('')}${v&&!SHIFT_OPTIONS.includes(v)?`<option selected value="${esc(v)}">${esc(v)}</option>`:''}</select></td>`}html+=`<td class="font-bold">${assigned}</td></tr>`});html+='</tbody>';$('scheduleTable').innerHTML=html;$('sourceLabel').textContent=`Nguồn: ${sourceName} · ${employees.length} nhân viên · Có thể chỉnh ca trực trong từng ô.`}
-function changeShift(el){let e=employees[Number(el.dataset.emp)];if(!e)return;undoStack.push({emp:Number(el.dataset.emp),date:el.dataset.date,old:e.shifts[el.dataset.date]||'',next:el.value});e.shifts[el.dataset.date]=el.value;changes++;render()}
-function undo(){let x=undoStack.pop();if(!x)return alert('Không còn thao tác để hoàn tác.');employees[x.emp].shifts[x.date]=x.old;changes=Math.max(0,changes-1);render()}
-function copyDay(){let from=prompt('Ngày nguồn (1-31):');if(from===null)return;let to=prompt('Sao chép sang ngày (1-31):');if(to===null)return;from=Number(from);to=Number(to);let n=daysInMonth(currentMonth);if(!Number.isInteger(from)||!Number.isInteger(to)||from<1||to<1||from>n||to>n)return alert('Ngày không hợp lệ.');let a=keyDate(from),b=keyDate(to);if(!confirm(`Sao chép ca ngày ${from} sang ngày ${to} cho ${employees.length} nhân viên?`))return;employees.forEach((e,i)=>{undoStack.push({emp:i,date:b,old:e.shifts[b]||'',next:e.shifts[a]||''});if(e.shifts[a])e.shifts[b]=e.shifts[a];else delete e.shifts[b]});changes++;render();alert('Đã sao chép lịch ngày. Có thể bấm Hoàn tác để khôi phục từng thao tác gần nhất.')}
-function apiUrl(){return $('apiUrl').value.trim()}
-async function cloudLoad(){if(!apiUrl())return alert('Hãy nhập URL Apps Script Web App.');try{statusMsg('Đang tải lịch từ Google Sheets…');let r=await fetch(apiUrl()+'?action=schedule_get&month='+encodeURIComponent(currentMonth));let j=await r.json();if(j.status!=='success')throw Error(j.message||'API không trả về dữ liệu thành công');employees=j.employees||[];employees.forEach(e=>e.shifts=e.shifts||{});sourceName='Google Sheets · '+currentMonth;changes=0;undoStack=[];render();statusMsg(`Đã tải ${employees.length} nhân viên từ Google Sheets.`)}catch(e){alert('Không tải được lịch: '+e.message+'\nKiểm tra URL triển khai, quyền truy cập và triển khai phiên bản mới.')}}
-async function submitDepartment(){if(!apiUrl())return alert('Hãy nhập URL Apps Script Web App.');if(!$('departmentToken').value.trim())return alert('Nhập mã bộ phận được HR cấp.');if(!employees.length)return alert('Chưa có dữ liệu lịch. Hãy tải lịch từ Sheets hoặc nhập Excel.');if(!confirm(`Gửi lịch tháng ${currentMonth} lên HR duyệt? Chỉ nhân viên thuộc bộ phận gắn với mã này được gửi.`))return;try{statusMsg('Đang gửi lịch bộ phận lên duyệt…');const r=await fetch(apiUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'schedule_submit',month:currentMonth,departmentToken:$('departmentToken').value.trim(),employees})});const j=await r.json();if(j.status!=='success')throw Error(j.message||'Gửi lịch thất bại');changes=0;render();alert(j.message)}catch(e){alert('Không gửi được lịch: '+e.message)}}
-async function publishSchedule(){if(!apiUrl())return alert('Hãy nhập URL Apps Script Web App.');if(!$('adminToken').value.trim())return alert('Nhập mã quản trị HR/Admin.');if(!confirm(`Duyệt và công bố các lịch đang chờ của tháng ${currentMonth}? Các bộ phận đã gửi sẽ được cập nhật vào lịch chính thức; bộ phận khác được giữ nguyên.`))return;try{statusMsg('Đang duyệt và công bố lịch…');const r=await fetch(apiUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'schedule_publish',month:currentMonth,adminToken:$('adminToken').value.trim()})});const j=await r.json();if(j.status!=='success')throw Error(j.message||'Công bố thất bại');alert(j.message);await cloudLoad()}catch(e){alert('Không công bố được lịch: '+e.message)}}
-async function cloudSave(){if(!apiUrl())return alert('Hãy nhập URL Apps Script Web App.');if(!$('adminToken').value.trim())return alert('Cần mã quản trị để lưu lịch.');if(!confirm(`Lưu lịch tháng ${currentMonth} lên Google Sheets? Dữ liệu lịch tháng này sẽ được thay thế bằng bản đang hiển thị.`))return;try{statusMsg('Đang lưu lịch lên Google Sheets…');let r=await fetch(apiUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'schedule_save',month:currentMonth,adminToken:$('adminToken').value.trim(),employees})});let j=await r.json();if(j.status!=='success')throw Error(j.message||'Lưu thất bại');changes=0;render();alert(j.message||'Đã lưu lịch lên Google Sheets thành công.')}catch(e){alert('Lưu lịch thất bại: '+e.message+'\nNếu gặp lỗi CORS, hãy kiểm tra triển khai Apps Script và URL /exec.')}}
-function statusMsg(t){$('sourceLabel').textContent=t}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function normalize(v){return String(v??'').trim()}
-function parseWorkbook(file){let reader=new FileReader();reader.onload=ev=>{try{workbook=XLSX.read(ev.target.result,{type:'array',cellDates:true});let names=workbook.SheetNames;let sheetName=names.find(n=>/^\d{4}$/.test(n))||names.find(n=>/^\d{1,2}$/.test(n))||names[0];let ws=workbook.Sheets[sheetName],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});if(!rows.length)throw Error('Sheet không có dữ liệu');let headerRow=-1;for(let i=0;i<Math.min(rows.length,20);i++){let s=rows[i].map(x=>normalize(x).toLowerCase()).join('|');if((s.includes('full name')||s.includes('họ tên')||s.includes('ho ten'))&&(s.includes('code')||s.includes('position')||s.includes('chức vụ'))){headerRow=i;break}}if(headerRow<0)headerRow=5;let headers=rows[headerRow].map(normalize);let nameIdx=headers.findIndex(x=>/full name|họ tên/i.test(x));if(nameIdx<0)nameIdx=1;let idIdx=headers.findIndex(x=>/employee id|mã nv|ma nv|employee code/i.test(x));let attIdx=headers.findIndex(x=>/mã chấm công|ma cham cong|machacong|attendance code|clock code/i.test(x));let deptIdx=headers.findIndex(x=>/dept|phòng ban/i.test(x));let sectionIdx=headers.findIndex(x=>/section|bộ phận/i.test(x));let posIdx=headers.findIndex(x=>/position|chức vụ/i.test(x));let dayStart=headers.findIndex(x=>/^(1|01)$/.test(x));if(dayStart<0)dayStart=6;
-let parsed=[];for(let r=headerRow+1;r<rows.length;r++){let row=rows[r],name=normalize(row[nameIdx]);if(!name||/^full name|^họ tên/i.test(name)||name.length>100)continue;let shifts={};for(let d=1;d<=31;d++){let val=normalize(row[dayStart+d-1]);if(val&&val!=='0')shifts[`${currentMonth}-${String(d).padStart(2,'0')}`]=val}parsed.push({id:idIdx>=0?normalize(row[idIdx]):'',maChamCong:attIdx>=0?normalize(row[attIdx]):'',name,dept:deptIdx>=0?normalize(row[deptIdx]):'',section:sectionIdx>=0?normalize(row[sectionIdx]):'',position:posIdx>=0?normalize(row[posIdx]):'',shifts})}if(!parsed.length)throw Error('Không tìm thấy danh sách nhân viên. Kiểm tra dòng tiêu đề và định dạng file.');employees=parsed;sourceName=file.name+' / sheet '+sheetName;originalSheetRows={rows,headerRow,dayStart,nameIdx,idIdx,deptIdx,sectionIdx,posIdx,sheetName};changes=0;render();alert(`Đã tải ${parsed.length} nhân viên từ sheet “${sheetName}”. Chọn đúng tháng trước khi chỉnh sửa nếu file là tháng khác.`)}catch(err){alert('Không đọc được file: '+err.message)}};reader.readAsArrayBuffer(file)}
-function exportExcel(){if(!employees.length)return alert('Chưa có dữ liệu để xuất.');let n=daysInMonth(currentMonth),data=[['Mã NV','Mã chấm công','Họ tên','Phòng ban','Bộ phận','Chức vụ',...Array.from({length:n},(_,i)=>i+1),'Tổng ca']];employees.forEach(e=>{let vals=Array.from({length:n},(_,i)=>e.shifts[keyDate(i+1)]||'');data.push([e.id,e.maChamCong||'',e.name,e.dept,e.section,e.position,...vals,vals.filter(Boolean).length])});let ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:14},{wch:16},{wch:28},{wch:20},{wch:20},{wch:20},...Array(n).fill({wch:8}),{wch:10}];ws['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:data.length-1,c:data[0].length-1}})};ws['!freeze']={xSplit:5,ySplit:1};let out=XLSX.utils.book_new();XLSX.utils.book_append_sheet(out,ws,'LLV '+currentMonth);XLSX.writeFile(out,`Lich_lam_viec_${currentMonth}.xlsx`)}
-$('btnImport').onclick=()=>$('fileInput').click();$('btnUndo').onclick=undo;$('btnCopyDay').onclick=copyDay;$('btnLoadCloud').onclick=cloudLoad;$('btnSubmitDept').onclick=submitDepartment;$('btnPublish').onclick=publishSchedule;$('fileInput').onchange=e=>{let f=e.target.files[0];if(f)parseWorkbook(f);e.target.value=''};$('btnExport').onclick=exportExcel;$('monthInput').onchange=()=>render();$('searchInput').oninput=()=>render();$('deptFilter').onchange=()=>render();$('shiftFilter').onchange=()=>render();$('btnReset').onclick=()=>{$('searchInput').value='';$('deptFilter').value='';$('shiftFilter').value='';render()};$('btnPrint').onclick=()=>window.print();$('btnClear').onclick=()=>{if(confirm('Xóa toàn bộ dữ liệu đang hiển thị khỏi trang?')){employees=[];changes=0;sourceName='Chưa tải file';render()}};$('btnAdd').onclick=()=>{let name=prompt('Họ tên nhân viên:');if(!name)return;let id=prompt('Mã nhân viên (nếu có):')||'';employees.push({id,name,dept:'',section:'',position:'',shifts:{}});changes++;render()};
-// Khong tu dong nap du lieu mau de tranh ghi nham lich chinh thuc.
-$('monthInput').value=currentMonth;employees=[];sourceName='Chưa tải lịch';render();
-</script></body></html>
+    <script>
+      // Tự động cấu hình URL động để chuyển sang trang admin
+      window.addEventListener('load', function() {
+        google.script.run.withSuccessHandler(function(url) {
+          document.getElementById('adminLink').href = url + "?page=admin";
+        }).getServiceUrl();
+      });
+    </script>
+  </body>
+</html>
