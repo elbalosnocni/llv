@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Panel</title>
+    <link href="https://jsdelivr.net" rel="stylesheet">
+    <style>
+      body { background-color: #f8f9fa; }
+      .sidebar { background: #212529; color: white; min-height: 100vh; padding: 20px; }
+      .main-content { padding: 30px; }
+    </style>
+  </head>
+  <body>
+    <div class="container-fluid">
+      <div class="row">
+        <!-- Thanh điều hướng Admin -->
+        <div class="col-md-3 col-lg-2 sidebar">
+          <h3>Admin Panel</h3>
+          <hr>
+          <ul class="nav flex-column">
+            <li class="nav-item"><a class="nav-link text-white active" href="#">📊 Tổng quan</a></li>
+            <li class="nav-item"><a class="nav-link text-white" href="#">⚙️ Cài đặt hệ thống</a></li>
+          </ul>
+        </div>
+        
+        <!-- Nội dung quản trị chính -->
+        <div class="col-md-9 col-lg-10 main-content">
+          <h2>Quản lý dữ liệu hệ thống</h2>
+          <div class="card mt-4">
+            <div class="card-body">
+              <button class="btn btn-success mb-3" onclick="loadData()">🔄 Tải lại dữ liệu</button>
+              <div id="loading" class="text-secondary" style="display:none;">Đang tải...</div>
+              <div class="table-responsive">
+                <table class="table table-striped table-hover" id="dataTable">
+                  <!-- Dữ liệu từ Google Sheets sẽ được render vào đây -->
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Hàm tối ưu gọi dữ liệu không đồng bộ (Asynchronous) từ Apps Script
+      function loadData() {
+        document.getElementById('loading').style.display = 'block';
+        google.script.run
+          .withSuccessHandler(function(response) {
+            document.getElementById('loading').style.display = 'none';
+            if(response.success) {
+              renderTable(response.data);
+            } else {
+              alert("Lỗi: " + response.message);
+            }
+          })
+          .getAdminData();
+      }
+
+      function renderTable(data) {
+        var table = document.getElementById('dataTable');
+        table.innerHTML = "";
+        
+        data.forEach(function(row, index) {
+          var tr = document.createElement('tr');
+          row.forEach(function(cell) {
+            var el = (index === 0) ? document.createElement('th') : document.createElement('td');
+            el.innerText = cell;
+            tr.appendChild(el);
+          });
+          table.appendChild(tr);
+        });
+      }
+
+      // Tự động tải dữ liệu khi trang admin được mở
+      window.onload = loadData;
+    </script>
+  </body>
+</html>
