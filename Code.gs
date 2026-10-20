@@ -14,7 +14,8 @@ const SH = {
   depts: ['Bộ phận','Mật khẩu','Đang sử dụng','Cập nhật lúc'],
   audit: ['Thời gian','Vai trò','Bộ phận','Hành động','Chi tiết'],
   attendance: ['Thời gian xuất','Tháng','Mã NV','Mã chấm công','Họ tên','Phòng ban','Bộ phận','Chức vụ','Ngày','Ca trực','Loại ngày đã xác nhận','Tên ngày','Giờ vào thực tế','Giờ ra thực tế','Số lần bấm','Số giờ giữa vào/ra','Hệ số tham chiếu','Trạng thái tính lương','Trạng thái đối chiếu','Chi tiết log'],
-  calendar: ['Ngày','Loại ngày','Tên ngày / lý do','Lịch điều chỉnh','Đã xác nhận','Người xác nhận','Cập nhật lúc','Ghi chú']
+  calendar: ['Ngày','Loại ngày','Tên ngày / lý do','Lịch điều chỉnh','Đã xác nhận','Người xác nhận','Cập nhật lúc','Ghi chú'],
+  employees: ['Hoten','MaNV','Machacong','SoCancuoc','Phongban','Bophan','Chucvu','Totruong']
 };
 function doGet(e) {
   try {
@@ -49,15 +50,15 @@ function doPost(e) {
 function setupSystem(adminPassword, hrPassword){
   if(!adminPassword||String(adminPassword).length<10)throw new Error('Mật khẩu Admin phải có ít nhất 10 ký tự.');
   if(!hrPassword||String(hrPassword).length<10)throw new Error('Mật khẩu HR phải có ít nhất 10 ký tự.');
-  const ss=ss_(); Object.keys(SH).forEach(k=>ensure_(ss,({schedule:'LICH_THANG',submissions:'LICH_GUI_DUYET',shifts:'CA_KIP',depts:'BO_PHAN',audit:'NHAT_KY',attendance:'XUAT_CHAM_CONG',calendar:'LICH_NGAY'})[k],SH[k]));
+  const ss=ss_(); Object.keys(SH).forEach(k=>ensure_(ss,({schedule:'LICH_THANG',submissions:'LICH_GUI_DUYET',shifts:'CA_KIP',depts:'BO_PHAN',audit:'NHAT_KY',attendance:'XUAT_CHAM_CONG',calendar:'LICH_NGAY',employees:'NHAN VIEN'})[k],SH[k]));
   const props=PropertiesService.getScriptProperties();props.setProperty('ADMIN_PASSWORD_HASH',hash_(String(adminPassword)));props.setProperty('HR_PASSWORD_HASH',hash_(String(hrPassword)));
   const shift=ss.getSheetByName('CA_KIP');if(shift.getLastRow()<2)shift.getRange(2,1,6,6).setValues([
     ['C1','Ca 1','06:00','14:00','#dcfce7',true],['C2','Ca 2','14:00','22:00','#fef3c7',true],['C3','Ca 3','22:00','06:00','#fee2e2',true],['HC','Hành chính','08:00','17:00','#dbeafe',true],['OFF','Nghỉ','00:00','00:00','#e2e8f0',true],['AL','Nghỉ phép','00:00','00:00','#f3e8ff',true]
   ]);
-  Object.keys(SH).forEach(k=>{const n=({schedule:'LICH_THANG',submissions:'LICH_GUI_DUYET',shifts:'CA_KIP',depts:'BO_PHAN',audit:'NHAT_KY',attendance:'XUAT_CHAM_CONG',calendar:'LICH_NGAY'})[k];const s=ss.getSheetByName(n);s.setFrozenRows(1);s.getRange(1,1,1,s.getLastColumn()).setFontWeight('bold');});
+  Object.keys(SH).forEach(k=>{const n=({schedule:'LICH_THANG',submissions:'LICH_GUI_DUYET',shifts:'CA_KIP',depts:'BO_PHAN',audit:'NHAT_KY',attendance:'XUAT_CHAM_CONG',calendar:'LICH_NGAY',employees:'NHAN VIEN'})[k];const s=ss.getSheetByName(n);s.setFrozenRows(1);s.getRange(1,1,1,s.getLastColumn()).setFontWeight('bold');});
   return 'Khởi tạo hoàn tất. Hãy thêm bộ phận và mật khẩu trong trang admin.html.';
 }
-function getSchedule_(ss,month){if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};const s=ss.getSheetByName('LICH_THANG'),m={};if(s&&s.getLastRow()>=2){const v=s.getDataRange().getValues();for(let i=1;i<v.length;i++){const r=v[i];if(month_(r[0])!==month)continue;const key=String(r[2]||r[1]||r[3]);if(!m[key])m[key]={id:String(r[1]||''),maChamCong:String(r[2]||''),name:String(r[3]||''),dept:String(r[4]||''),section:String(r[5]||''),position:String(r[6]||''),shifts:{}};if(r[7]&&r[8]&&!isBlankOffShift_(r[8]))m[key].shifts[date_(r[7])]=String(r[8]);}}return {status:'success',month,employees:Object.values(m),calendarDays:calendarMap_(ss,month)};}
+function getSchedule_(ss,month){if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};const s=ss.getSheetByName('LICH_THANG'),m={};if(s&&s.getLastRow()>=2){const v=s.getDataRange().getValues();for(let i=1;i<v.length;i++){const r=v[i];if(month_(r[0])!==month)continue;const key=String(r[2]||r[1]||r[3]);if(!m[key])m[key]={id:String(r[1]||''),maChamCong:String(r[2]||''),name:String(r[3]||''),dept:String(r[4]||''),section:String(r[5]||''),position:String(r[6]||''),shifts:{}};if(r[7]&&r[8]&&!isBlankOffShift_(r[8]))m[key].shifts[date_(r[7])]=String(r[8]);}}return {status:'success',month,employees:Object.values(m),shifts:readShifts_(ss).filter(x=>x.active),calendarDays:calendarMap_(ss,month)};}
 function submitSchedule_(ss,b){const dept=verifyDept_(ss,b.department,b.password);if(!dept)return {status:'error',message:'Xác thực bộ phận thất bại.'};if(!validMonth_(b.month))return {status:'error',message:'Tháng không hợp lệ.'};if(!Array.isArray(b.employees)||!b.employees.length)return {status:'error',message:'Chưa có danh sách nhân viên.'};const list=b.employees;const errors=validateEmployees_(list,b.month,dept,readShifts_(ss));if(errors.length)return {status:'error',message:'Lịch chưa hợp lệ: '+errors.slice(0,8).join('; ')};const s=ensure_(ss,'LICH_GUI_DUYET',SH.submissions),now=new Date(),id=Utilities.getUuid();s.appendRow([id,b.month,dept,dept,now,'Chờ bộ phận duyệt',JSON.stringify(list),'','']);audit_(ss,'BỘ PHẬN',dept,'GỬI LỊCH',b.month+' / '+list.length+' nhân viên');return {status:'success',message:'Đã gửi lịch vào bước tự kiểm tra. Bộ phận cần xác nhận duyệt để công bố.',submissionId:id};}
 function approveDepartment_(ss,b){
   const dept=verifyDept_(ss,b.department,b.password);
@@ -148,7 +149,7 @@ function exportAttendance_(ss,month){
   if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};
   const data=getSchedule_(ss,month);if(data.status!=='success')return data;
   const logs=readAttendanceLogs_(month), shifts=readShifts_(ss), shiftMap={}, calendar=data.calendarDays||{};
-  shifts.forEach(x=>shiftMap[String(x.name||'').trim().toLowerCase()]=x);
+  shifts.forEach(x=>{shiftMap[String(x.name||'').trim().toLowerCase()]=x;shiftMap[String(x.code||'').trim().toLowerCase()]=x;});
   const now=new Date(),rows=[];
   data.employees.forEach(e=>Object.keys(e.shifts||{}).sort().forEach(d=>{
     const shiftName=String(e.shifts[d]||'').trim(), shift=shiftMap[shiftName.toLowerCase()]||null;

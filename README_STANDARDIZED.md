@@ -26,3 +26,15 @@
 - Đặt ca làm vào ngày `LEGAL_HOLIDAY` rồi tải lịch: ca vẫn hiện, nền ngày lễ vẫn giữ.
 - Xuất chấm công: các cột loại ngày/hệ số tham chiếu phải có giá trị phù hợp.
 - Kiểm tra quyền Admin và URL API trước khi dùng chính thức.
+
+
+## Cập nhật giao diện v1.1
+- Lịch tra cứu hiển thị **Mã ca** (ví dụ C1/C2/C3) thay cho tên ca; rê chuột lên mã ca để xem tên và giờ.
+- Bảng chú thích đầu lịch lấy mã ca, tên ca, giờ bắt đầu/kết thúc và màu từ tab `CA_KIP`.
+- Nền ngày được tô theo loại ngày trong `LICH_NGAY`: nghỉ tuần, lễ/Tết, nghỉ công ty, ngày làm bù và nghỉ phép.
+- Xuất Excel bị chặn nếu người dùng đổi tháng nhưng chưa bấm **Tải lịch**, tránh tên file/tháng xuất không khớp tháng đang chọn.
+- Khi công bố lịch mới, backend lưu mã ca thay vì tên ca. Dữ liệu lịch cũ đang lưu tên ca vẫn được giao diện nhận diện nếu tên trùng với `CA_KIP`.
+- `setupSystem` tạo tab `NHAN VIEN` với bộ tiêu đề chuẩn nếu tab chưa có.
+
+## Lưu ý phạm vi
+Các yêu cầu lớn như nhập lịch trực tiếp trên web theo bộ phận/chức vụ/kíp/tổ trưởng, đồng bộ danh sách nhân viên mới nhất từ `NHAN VIEN`, và quy tắc chuyển bộ phận/tổ “cập nhật lịch hay giữ nguyên” chưa được triển khai trong bản giao diện này. Cần bổ sung API và màn hình quản trị tương ứng trước khi dùng thay thế hoàn toàn quy trình nhập lịch hiện tại.
