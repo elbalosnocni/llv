@@ -1,81 +1,13 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <base target="_top">
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Panel</title>
-    <link href="https://jsdelivr.net" rel="stylesheet">
-    <style>
-      body { background-color: #f8f9fa; }
-      .sidebar { background: #212529; color: white; min-height: 100vh; padding: 20px; }
-      .main-content { padding: 30px; }
-    </style>
-  </head>
-  <body>
-    <div class="container-fluid">
-      <div class="row">
-        <!-- Thanh điều hướng Admin -->
-        <div class="col-md-3 col-lg-2 sidebar">
-          <h3>Admin Panel</h3>
-          <hr>
-          <ul class="nav flex-column">
-            <li class="nav-item"><a class="nav-link text-white active" href="#">📊 Tổng quan</a></li>
-            <li class="nav-item"><a class="nav-link text-white" href="#">⚙️ Cài đặt hệ thống</a></li>
-          </ul>
-        </div>
-        
-        <!-- Nội dung quản trị chính -->
-        <div class="col-md-9 col-lg-10 main-content">
-          <h2>Quản lý dữ liệu hệ thống</h2>
-          <div class="card mt-4">
-            <div class="card-body">
-              <button class="btn btn-success mb-3" onclick="loadData()">🔄 Tải lại dữ liệu</button>
-              <div id="loading" class="text-secondary" style="display:none;">Đang tải...</div>
-              <div class="table-responsive">
-                <table class="table table-striped table-hover" id="dataTable">
-                  <!-- Dữ liệu từ Google Sheets sẽ được render vào đây -->
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <script>
-      // Hàm tối ưu gọi dữ liệu không đồng bộ (Asynchronous) từ Apps Script
-      function loadData() {
-        document.getElementById('loading').style.display = 'block';
-        google.script.run
-          .withSuccessHandler(function(response) {
-            document.getElementById('loading').style.display = 'none';
-            if(response.success) {
-              renderTable(response.data);
-            } else {
-              alert("Lỗi: " + response.message);
-            }
-          })
-          .getAdminData();
-      }
-
-      function renderTable(data) {
-        var table = document.getElementById('dataTable');
-        table.innerHTML = "";
-        
-        data.forEach(function(row, index) {
-          var tr = document.createElement('tr');
-          row.forEach(function(cell) {
-            var el = (index === 0) ? document.createElement('th') : document.createElement('td');
-            el.innerText = cell;
-            tr.appendChild(el);
-          });
-          table.appendChild(tr);
-        });
-      }
-
-      // Tự động tải dữ liệu khi trang admin được mở
-      window.onload = loadData;
-    </script>
-  </body>
-</html>
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Quản lý lịch làm việc</title><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script></head><body class="bg-slate-100 text-slate-800"><header class="bg-slate-900 text-white p-5"><div class="max-w-6xl mx-auto"><h1 class="text-2xl font-bold">Quản lý lịch làm việc</h1><p class="text-slate-300 text-sm">Bộ phận tự nhập và duyệt lịch · HR chỉ xem tổng hợp · Admin quản lý cấu hình</p></div></header><main class="max-w-6xl mx-auto p-3 md:p-6 space-y-4"><div class="flex gap-3 flex-wrap"><a href="index.html" class="underline text-blue-700">← Tra cứu lịch</a><span id="roleLabel" class="text-sm text-slate-500">Chưa đăng nhập</span></div><section id="login" class="bg-white rounded-xl p-5 space-y-3"><h2 class="font-bold text-lg">Đăng nhập</h2><div class="flex flex-wrap gap-3"><label class="text-sm">Vai trò<select id="role" class="block border rounded-lg p-2 mt-1"><option value="dept">Bộ phận nhập / duyệt lịch</option><option value="hr">HR xem tổng hợp / xuất chấm công</option><option value="admin">Admin cấu hình hệ thống</option></select></label><label id="deptBox" class="text-sm">Tên bộ phận<input id="department" class="block border rounded-lg p-2 mt-1" placeholder="Ví dụ: Đóng gói"></label><label class="text-sm">Mật khẩu<input id="password" type="password" class="block border rounded-lg p-2 mt-1" autocomplete="current-password"></label><button id="loginBtn" class="self-end bg-blue-700 text-white rounded-lg px-4 py-2">Đăng nhập</button></div><p class="text-xs text-slate-500">Mật khẩu được xác minh phía máy chủ. Không sử dụng mật khẩu mẫu hoặc mã cố định trong HTML.</p></section>
+<section id="deptPanel" class="hidden bg-white rounded-xl p-5 space-y-4"><h2 class="font-bold text-lg">Nhập lịch bộ phận</h2><p class="text-sm text-slate-600">Tải Excel có các cột: Mã NV, Mã chấm công, Họ tên, Phòng ban, Bộ phận, Chức vụ và các cột ngày 1–31. Dữ liệu chỉ gửi cho đúng bộ phận đang đăng nhập.</p><div class="flex flex-wrap gap-3 items-end"><label class="text-sm">Tháng<input id="month" type="month" class="block border rounded-lg p-2 mt-1"></label><label class="text-sm">File Excel<input id="file" type="file" accept=".xlsx,.xls,.csv" class="block border rounded-lg p-2 mt-1"></label><button id="upload" class="bg-slate-800 text-white rounded-lg px-4 py-2">Đọc file</button><button id="submit" class="bg-amber-600 text-white rounded-lg px-4 py-2">Gửi kiểm tra</button><button id="approve" class="bg-emerald-700 text-white rounded-lg px-4 py-2">Duyệt & công bố lịch bộ phận</button></div><div id="preview" class="text-sm text-slate-600">Chưa tải file.</div><div id="checks" class="text-sm"></div></section>
+<section id="hrPanel" class="hidden bg-white rounded-xl p-5 space-y-3"><h2 class="font-bold text-lg">HR — Lịch tổng hợp và xuất chấm công</h2><p class="text-sm text-slate-600">HR chỉ xem lịch đã được bộ phận duyệt và công bố. Không có nút sửa hoặc duyệt lịch.</p><div class="flex gap-3 flex-wrap items-end"><label class="text-sm">Tháng<input id="hrMonth" type="month" class="block border rounded-lg p-2 mt-1"></label><button id="hrLoad" class="bg-blue-700 text-white rounded-lg px-4 py-2">Xem tổng hợp</button><button id="hrExport" class="bg-emerald-700 text-white rounded-lg px-4 py-2">Tạo bảng chuyển chấm công</button></div><div id="hrResult" class="text-sm"></div></section>
+<section id="adminPanel" class="hidden space-y-4"><div class="bg-white rounded-xl p-5 space-y-3"><h2 class="font-bold text-lg">Quản lý bộ phận và mật khẩu</h2><div class="flex flex-wrap gap-3 items-end"><label class="text-sm">Tên bộ phận<input id="newDept" class="block border rounded-lg p-2 mt-1"></label><label class="text-sm">Mật khẩu mới<input id="newDeptPw" type="password" class="block border rounded-lg p-2 mt-1"></label><button id="saveDept" class="bg-blue-700 text-white rounded-lg px-4 py-2">Thêm / đổi mật khẩu</button></div><div id="deptList" class="text-sm"></div></div><div class="bg-white rounded-xl p-5 space-y-3"><h2 class="font-bold text-lg">Quản lý ca kíp</h2><div class="overflow-auto"><table class="w-full text-sm"><thead><tr class="text-left border-b"><th class="p-2">Mã</th><th class="p-2">Tên ca</th><th class="p-2">Bắt đầu</th><th class="p-2">Kết thúc</th><th class="p-2">Màu</th><th class="p-2">Dùng</th><th></th></tr></thead><tbody id="shiftRows"></tbody></table></div><div class="flex gap-2"><button id="addShift" class="border rounded-lg px-3 py-2">+ Thêm ca</button><button id="saveShifts" class="bg-emerald-700 text-white rounded-lg px-4 py-2">Lưu ca kíp</button></div></div></section><div id="msg" class="text-sm"></div></main><script>
+const API='https://script.google.com/macros/s/AKfycbzn4ymnmgcmSqrFS3wX0pmYmclCA31G4QCVw290QnrbHJfN0K71xvUOtsPskHLmxP9R/exec';const $=x=>document.getElementById(x);let role='',dept='',password='',adminPassword='',hrPassword='',employees=[],month='';$('month').value=new Date().toISOString().slice(0,7);$('hrMonth').value=$('month').value;
+function msg(t,bad=false){$('msg').textContent=t;$('msg').className='text-sm '+(bad?'text-red-700':'text-emerald-700')}async function post(data){const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});return r.json()}function setRole(r){role=r;$('roleLabel').textContent='Vai trò: '+({dept:'Bộ phận '+dept,hr:'HR — chỉ xem',admin:'Admin hệ thống'}[r]||r);$('login').classList.add('hidden');['deptPanel','hrPanel','adminPanel'].forEach(x=>$(x).classList.add('hidden'));if(r==='dept')$('deptPanel').classList.remove('hidden');if(r==='hr')$('hrPanel').classList.remove('hidden');if(r==='admin')$('adminPanel').classList.remove('hidden')}
+$('role').onchange=()=>$('deptBox').style.display=$('role').value==='dept'?'block':'none';$('loginBtn').onclick=async()=>{try{const r=$('role').value,p=$('password').value;if(r==='dept'){dept=$('department').value.trim();let j=await post({action:'dept_login',department:dept,password:p});if(j.status!=='success')throw Error(j.message);password=p;setRole('dept')}else if(r==='admin'){let j=await post({action:'admin_login',adminPassword:p});if(j.status!=='success')throw Error(j.message);adminPassword=p;setRole('admin');await loadAdmin()}else{if(!p)throw Error('Nhập mật khẩu HR.');let j=await post({action:'hr_login',hrPassword:p});if(j.status!=='success')throw Error(j.message);hrPassword=p;setRole('hr') }}catch(e){msg(e.message,true)}};
+function normalize(s){return String(s??'').trim()}function normHead(s){return normalize(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d')}
+$('upload').onclick=async()=>{const f=$('file').files[0];month=$('month').value;if(!f)return msg('Chọn file Excel trước.',true);try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true}),ws=wb.Sheets[wb.SheetNames[0]],rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});let hi=rows.findIndex(r=>r.some(x=>/ho ten|full name/i.test(normHead(x)))&&r.some(x=>/ma nv|employee id|employee code/i.test(normHead(x))));if(hi<0)hi=0;const headers=rows[hi].map(normHead),find=(...patterns)=>headers.findIndex(h=>patterns.some(p=>h.includes(p)));let ix={id:find('ma nv','employee id','employee code'),clock:find('ma cham cong','attendance code','clock code'),name:find('ho ten','full name','name'),dept:find('phong ban','department','dept'),section:find('bo phan','section'),position:find('chuc vu','position')};if(ix.name<0)throw Error('Không nhận diện được cột Họ tên.');const n=Number(month.slice(5,7)),year=Number(month.slice(0,4)),nd=new Date(year,n,0).getDate();let dayCols={};headers.forEach((h,i)=>{let m=h.match(/^(0?[1-9]|[12][0-9]|3[01])$/);if(m)dayCols[Number(m[1])]=i});employees=[];for(const row of rows.slice(hi+1)){let name=normalize(row[ix.name]);if(!name)continue;let e={id:ix.id>=0?normalize(row[ix.id]):'',maChamCong:ix.clock>=0?normalize(row[ix.clock]):'',name,dept:ix.dept>=0?normalize(row[ix.dept]):'',section:ix.section>=0?normalize(row[ix.section]):'',position:ix.position>=0?normalize(row[ix.position]):'',shifts:{}};for(let d=1;d<=nd;d++){let ci=dayCols[d];if(ci==null)continue;let v=normalize(row[ci]);if(v)e.shifts[`${month}-${String(d).padStart(2,'0')}`]=v}employees.push(e)}$('preview').textContent=`Đã đọc ${employees.length} nhân viên cho ${month}. Bộ phận đăng nhập: ${dept}.`;msg('Đã đọc file. Kiểm tra danh sách trước khi gửi.');$('checks').textContent=employees.some(e=>e.section!==dept)?'Cảnh báo: có dòng bộ phận không trùng tài khoản; máy chủ sẽ từ chối khi gửi.':'Tên bộ phận trong file phù hợp.'}catch(e){msg('Không đọc được Excel: '+e.message,true)}};
+$('submit').onclick=async()=>{if(!employees.length)return msg('Chưa đọc file Excel.',true);if(!confirm(`Gửi ${employees.length} nhân viên tháng ${$('month').value} để kiểm tra?`))return;try{let j=await post({action:'schedule_submit',department:dept,password,month:$('month').value,employees});if(j.status!=='success')throw Error(j.message);msg(j.message)}catch(e){msg(e.message,true)}};$('approve').onclick=async()=>{if(!confirm('Xác nhận bộ phận đã kiểm tra và duyệt lịch tháng này?'))return;try{let j=await post({action:'department_approve',department:dept,password,month:$('month').value});if(j.status!=='success')throw Error(j.message);msg(j.message)}catch(e){msg(e.message,true)}};
+async function loadAdmin(){const j=await post({action:'admin_get_config',adminPassword});if(j.status!=='success')throw Error(j.message);$('deptList').innerHTML=j.departments.map(d=>`<div class="border-b py-2">${d.department} <span class="text-slate-500">(mật khẩu được lưu dạng băm)</span></div>`).join('')||'Chưa có bộ phận.';$('shiftRows').innerHTML='';j.shifts.forEach(s=>addShiftRow(s))}function addShiftRow(s={code:'',name:'',start:'08:00',end:'17:00',color:'#dbeafe',active:true}){const tr=document.createElement('tr');tr.className='border-b';tr.innerHTML=`<td class="p-1"><input class="sc border rounded p-1 w-16" value="${s.code}"></td><td class="p-1"><input class="sn border rounded p-1" value="${s.name}"></td><td class="p-1"><input type="time" class="ss border rounded p-1" value="${s.start}"></td><td class="p-1"><input type="time" class="se border rounded p-1" value="${s.end}"></td><td class="p-1"><input type="color" class="scolor" value="${s.color||'#dbeafe'}"></td><td class="p-1"><input type="checkbox" class="sa" ${s.active?'checked':''}></td><td><button class="text-red-700" type="button">Xóa</button></td>`;tr.querySelector('button').onclick=()=>tr.remove();$('shiftRows').appendChild(tr)}$('addShift').onclick=()=>addShiftRow();$('saveShifts').onclick=async()=>{const shifts=[...$('shiftRows').querySelectorAll('tr')].map(r=>({code:r.querySelector('.sc').value.trim(),name:r.querySelector('.sn').value.trim(),start:r.querySelector('.ss').value,end:r.querySelector('.se').value,color:r.querySelector('.scolor').value,active:r.querySelector('.sa').checked}));try{const j=await post({action:'admin_save_shifts',adminPassword,shifts});if(j.status!=='success')throw Error(j.message);msg(j.message)}catch(e){msg(e.message,true)}};$('saveDept').onclick=async()=>{try{const j=await post({action:'admin_save_department',adminPassword,department:$('newDept').value.trim(),password:$('newDeptPw').value});if(j.status!=='success')throw Error(j.message);$('newDeptPw').value='';await loadAdmin();msg(j.message)}catch(e){msg(e.message,true)}};
+$('hrLoad').onclick=async()=>{try{const r=await fetch(API+'?action=schedule_get&month='+encodeURIComponent($('hrMonth').value)),j=await r.json();if(j.status!=='success')throw Error(j.message);let rows=j.employees||[];$('hrResult').textContent=`Tháng ${$('hrMonth').value}: ${rows.length} nhân viên, ${rows.reduce((n,e)=>n+Object.keys(e.shifts||{}).length,0)} lượt phân ca. HR chỉ xem, không chỉnh sửa hoặc duyệt.`}catch(e){msg(e.message,true)}};$('hrExport').onclick=async()=>{try{const j=await post({action:'attendance_export',hrPassword,month:$('hrMonth').value});if(j.status!=='success')throw Error(j.message);$('hrResult').textContent=j.message+' Mở Google Sheets tab XUAT_CHAM_CONG để tải/chuyển sang hệ thống chấm công.'}catch(e){msg(e.message,true)}};
+</script></body></html>
