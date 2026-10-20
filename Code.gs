@@ -77,10 +77,34 @@ function approveDepartment_(ss,b){
   let employees=[];try{employees=JSON.parse(String(rec[6]||'[]'));}catch(e){return {status:'error',message:'Dữ liệu lịch đang chờ bị lỗi JSON tại dòng '+idx+' của tab LICH_GUI_DUYET.'};}
   const errors=validateEmployees_(employees,wantedMonth,dept,readShifts_(ss));
   if(errors.length)return {status:'error',message:'Không thể duyệt: '+errors.slice(0,8).join('; ')};
-  publishDept_(ss,wantedMonth,dept,employees);s.getRange(idx,6).setValue('Đã duyệt bởi bộ phận');s.getRange(idx,8).setValue(new Date());s.getRange(idx,9).setValue('Bộ phận tự duyệt');audit_(ss,'BỘ PHẬN',dept,'DUYỆT & CÔNG BỐ',wantedMonth);
-  return {status:'success',message:'Đã duyệt và công bố lịch của '+dept+' tháng '+wantedMonth+'.'};
+  let publishedRows=0;
+  try { publishedRows=publishDept_(ss,wantedMonth,dept,employees); }
+  catch(err) { return {status:'error',message:'Không thể công bố lịch vào LICH_THANG: '+String(err.message||err)}; }
+  if(publishedRows<1) return {status:'error',message:'Không có ca làm việc hợp lệ để ghi vào LICH_THANG cho bộ phận '+dept+' tháng '+wantedMonth+'. Lịch chưa được đánh dấu đã duyệt. Hãy kiểm tra cột ngày 1–31 và nội dung ca trong file Excel, sau đó gửi lại lịch.'};
+  s.getRange(idx,6).setValue('Đã duyệt bởi bộ phận');s.getRange(idx,8).setValue(new Date());s.getRange(idx,9).setValue('Bộ phận tự duyệt; đã ghi '+publishedRows+' dòng vào LICH_THANG');audit_(ss,'BỘ PHẬN',dept,'DUYỆT & CÔNG BỐ',wantedMonth+' / '+publishedRows+' dòng');
+  return {status:'success',message:'Đã duyệt và công bố lịch của '+dept+' tháng '+wantedMonth+'. Đã ghi '+publishedRows+' dòng vào LICH_THANG.',rows:publishedRows,sheet:'LICH_THANG'};
 }
-function publishDept_(ss,month,dept,employees){const s=ensure_(ss,'LICH_THANG',SH.schedule),v=s.getDataRange().getValues(),keep=[SH.schedule];for(let i=1;i<v.length;i++)if(month_(v[i][0])!==month||String(v[i][5]||'')!==dept){const row=v[i].slice(0,SH.schedule.length);while(row.length<SH.schedule.length)row.push('');keep.push(row);}s.clearContents();s.getRange(1,1,keep.length,SH.schedule.length).setValues(keep);const now=new Date(),rows=[];employees.forEach(e=>Object.keys(e.shifts||{}).forEach(d=>{const shift=String(e.shifts[d]||'').trim();if(d.startsWith(month+'-')&&shift)rows.push([month,String(e.id||''),String(e.maChamCong||''),String(e.name||''),String(e.dept||''),dept,String(e.position||''),d,shift,now,dept]);}));if(rows.length)s.getRange(s.getLastRow()+1,1,rows.length,SH.schedule.length).setValues(rows);s.setFrozenRows(1);}
+function publishDept_(ss,month,dept,employees){
+  const rows=[],now=new Date();
+  employees.forEach(e=>Object.keys(e.shifts||{}).forEach(d=>{
+    const shift=String(e.shifts[d]||'').trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(d)) && String(d).slice(0,7)===month && shift){
+      rows.push([month,String(e.id||''),String(e.maChamCong||''),String(e.name||''),String(e.dept||''),dept,String(e.position||''),String(d),shift,now,dept]);
+    }
+  }));
+  // Không xóa dữ liệu đang công bố nếu bản gửi không có ca hợp lệ.
+  if(!rows.length) return 0;
+  const s=ensure_(ss,'LICH_THANG',SH.schedule),v=s.getDataRange().getValues(),keep=[SH.schedule];
+  for(let i=1;i<v.length;i++) if(month_(v[i][0])!==month || String(v[i][5]||'').trim()!==dept){
+    const row=v[i].slice(0,SH.schedule.length);while(row.length<SH.schedule.length)row.push('');keep.push(row);
+  }
+  s.clearContents();
+  s.getRange(1,1,keep.length,SH.schedule.length).setValues(keep);
+  s.getRange(keep.length+1,1,rows.length,SH.schedule.length).setValues(rows);
+  s.setFrozenRows(1);
+  SpreadsheetApp.flush();
+  return rows.length;
+}
 function validateEmployees_(list,month,dept,shifts){const errors=[],known={};shifts.filter(x=>x.active).forEach(x=>known[x.name.toLowerCase()]=true);const ids={};list.forEach((e,i)=>{const label='Dòng '+(i+1);if(!String(e.name||'').trim())errors.push(label+' thiếu họ tên');if(!String(e.id||e.maChamCong||'').trim())errors.push(label+' thiếu mã nhân viên/mã chấm công');if(String(e.section||e.dept||'').trim()!==dept)errors.push(label+' không thuộc bộ phận '+dept);const ident=String(e.maChamCong||e.id||'').trim();if(ids[ident])errors.push(label+' trùng mã với dòng '+ids[ident]);ids[ident]=i+1;Object.keys(e.shifts||{}).forEach(d=>{if(!d.startsWith(month+'-'))errors.push(label+' có ngày ngoài tháng');const day=Number(d.slice(-2));if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||day<1||day>new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate())errors.push(label+' có ngày không hợp lệ '+d);const val=String(e.shifts[d]||'').trim();if(val&&!known[val.toLowerCase()])errors.push(label+' dùng ca chưa cấu hình: '+val);});});return errors;}
 function saveDepartment_(ss,b){const dept=String(b.department||'').trim(),pw=String(b.password||'');if(!dept||!pw)return {status:'error',message:'Cần nhập tên bộ phận và mật khẩu.'};if(pw.length<6)return {status:'error',message:'Mật khẩu bộ phận tối thiểu 6 ký tự.'};const s=ensure_(ss,'BO_PHAN',SH.depts),v=s.getDataRange().getValues();let row=-1;for(let i=1;i<v.length;i++)if(String(v[i][0]).trim()===dept){row=i+1;break;}const vals=[dept,hash_(pw),true,new Date()];if(row>0)s.getRange(row,1,1,4).setValues([vals]);else s.appendRow(vals);audit_(ss,'ADMIN','', 'CẬP NHẬT BỘ PHẬN',dept);return {status:'success',message:'Đã lưu bộ phận '+dept};}
 function deleteDepartment_(ss,b){const dept=String(b.department||'').trim(),s=ss.getSheetByName('BO_PHAN');if(s&&s.getLastRow()>1){const v=s.getDataRange().getValues();for(let i=v.length-1;i>=1;i--)if(String(v[i][0]).trim()===dept)s.deleteRow(i+1);}audit_(ss,'ADMIN','','NGỪNG BỘ PHẬN',dept);return {status:'success',message:'Đã xóa/ngừng bộ phận '+dept};}

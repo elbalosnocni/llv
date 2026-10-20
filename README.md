@@ -1,43 +1,21 @@
-# Lịch làm việc V2
+# Lịch làm việc V2 — sửa xác nhận và công bố lịch
 
-## Vai trò
-- `index.html`: tra cứu lịch đã được bộ phận duyệt/công bố; chỉ đọc.
-- `admin.html`: bộ phận đăng nhập để gửi và tự duyệt lịch; HR đăng nhập để xem tổng hợp/tạo bảng xuất chấm công; Admin quản lý mật khẩu bộ phận và ca kíp.
-- `Code.gs`: API Google Apps Script và khởi tạo các tab/header.
+## Sửa lỗi “báo công bố thành công nhưng LICH_THANG trống”
+- Hàm công bố tạo danh sách dòng cần ghi trước khi thay đổi `LICH_THANG`.
+- Nếu bản lịch không có ca/ngày hợp lệ, API trả lỗi rõ ràng và không đánh dấu đã duyệt.
+- Nếu công bố thành công, thông báo trả về số dòng đã ghi vào `LICH_THANG`; tab `LICH_GUI_DUYET` cũng ghi số dòng trong cột Ghi chú.
+- Dữ liệu lịch cũ không bị xóa nếu bản gửi mới không có dòng hợp lệ.
 
-## Triển khai lần đầu
-1. Mở Apps Script đang gắn với Google Sheets hiện tại.
-2. Sao lưu toàn bộ Google Sheets và code cũ.
-3. Thay code bằng `Code.gs` trong gói này. Giữ đúng `SPREADSHEET_ID` hiện tại.
-4. Chọn hàm `setupSystem`, chạy một lần với hai mật khẩu mạnh, ví dụ trong editor:
-   `setupSystem('MAT_KHAU_ADMIN_DAI_HON_10_KY_TU', 'MAT_KHAU_HR_DAI_HON_10_KY_TU')`
-   Không dùng nguyên chuỗi ví dụ; thay bằng mật khẩu thật. Hàm tạo/chuẩn hóa các tab: `LICH_THANG`, `LICH_GUI_DUYET`, `CA_KIP`, `BO_PHAN`, `NHAT_KY`, `XUAT_CHAM_CONG`.
-5. Cấp quyền Google Sheets khi được hỏi.
-6. Deploy > Manage deployments > Edit > New version > Deploy. Giữ URL `/exec` hiện tại nếu deployment đó được cập nhật.
-7. Đưa `index.html` và `admin.html` lên GitHub Pages cùng thư mục; hai file đã trỏ tới GAS URL được cung cấp.
-8. Mở `admin.html`, đăng nhập Admin, thêm từng bộ phận và đặt mật khẩu. Mật khẩu bộ phận được lưu dạng SHA-256 hash trong tab `BO_PHAN`.
-9. Thử với một bản sao dữ liệu và một bộ phận trước khi triển khai toàn công ty.
+## Triển khai
+1. Sao lưu Google Sheets và Apps Script hiện tại.
+2. Thay `Code.gs` bằng file trong gói này. Giữ nguyên `SPREADSHEET_ID` đang trỏ tới file lịch làm việc; file log máy chấm công vẫn được cấu hình riêng.
+3. Lưu và triển khai Apps Script bằng **Deploy > Manage deployments > Edit > New version > Deploy**.
+4. Tải `admin.html` và `index.html` cùng gói lên GitHub Pages nếu cần đồng bộ phiên bản giao diện.
+5. Mở lại trang quản trị, tải lại lịch tháng 2026-10. Nếu lần trước báo thành công nhưng `LICH_THANG` rỗng, hãy kiểm tra dữ liệu JSON ở cột G của `LICH_GUI_DUYET`: phải có `shifts` với khóa ngày dạng `YYYY-MM-DD` và ca không rỗng. Nếu bản gửi cũ không có ca, đọc lại Excel và gửi bản mới.
 
-## Quy trình bộ phận
-1. Đăng nhập đúng tên bộ phận và mật khẩu.
-2. Tải Excel có cột nhận diện được: Mã NV, Mã chấm công (không bắt buộc nếu có Mã NV), Họ tên, Phòng ban, Bộ phận, Chức vụ; cột ngày đặt là `1` đến `31`.
-3. Nội dung ca trong file phải trùng với cột `Tên ca` đang bật trong tab `CA_KIP` (ví dụ `Ca 1`, `Ca 2`, `Ca 3`, `Hành chính`, `Nghỉ`, `Nghỉ phép`).
-4. Chọn tháng, đọc file, gửi kiểm tra; sau đó bộ phận bấm “Duyệt & công bố lịch bộ phận”. HR không duyệt/sửa lịch.
+## Kiểm tra sau công bố
+- Thông báo thành công phải nêu `Đã ghi N dòng vào LICH_THANG` với N > 0.
+- Mở đúng file lịch có ID được khai báo trong `SPREADSHEET_ID`, kiểm tra tab `LICH_THANG`.
+- Trang tra cứu phải dùng cùng URL Apps Script đang triển khai.
 
-## HR và Admin
-- HR dùng mật khẩu HR riêng đã đặt qua `setupSystem(adminPassword, hrPassword)`. HR chỉ xem lịch và gọi chức năng tạo bảng `XUAT_CHAM_CONG`; không có API chỉnh sửa/duyệt lịch.
-- Admin dùng mật khẩu Admin riêng, quản lý danh mục ca và mật khẩu bộ phận. Admin không có chức năng ghi đè lịch bộ phận.
-- Các hành động quan trọng được ghi vào `NHAT_KY`.
-
-## Lưu ý quan trọng
-- `setupSystem()` lưu lại mật khẩu Admin/HR mới và khởi tạo tab còn thiếu. Không chạy lại nếu không muốn đổi mật khẩu Admin/HR.
-- Bản V2 giữ Spreadsheet ID và tên tab lịch hiện tại, nhưng hãy sao lưu trước. Các cột lịch mới có thêm `Người cập nhật`; dữ liệu cũ được giữ khi tab được chuẩn hóa.
-- Bản này đã kiểm tra cú pháp JavaScript tĩnh, chưa thể kiểm chứng quyền truy cập/triển khai trực tiếp trên tài khoản Google của bạn. Cần thử bằng tài khoản và dữ liệu sao lưu trước khi dùng chính thức.
-
-
-## Đối chiếu log máy chấm công (bổ sung)
-- Nguồn log mặc định: Spreadsheet `1LshZZc_Pqf2hTq6CCC-6y69RjOPZoylYbGroaAqUrNM`. Cột C = mã chấm công; cột D = thời gian bấm thẻ.
-- Mặc định code đọc tab đầu tiên của file log. Nếu log nằm ở tab khác, điền tên tab chính xác vào `ATTENDANCE_LOG_SHEET_NAME` trong `Code.gs`.
-- Tài khoản triển khai Apps Script phải có quyền xem file log.
-- HR/Admin dùng chức năng tạo bảng chấm công để tái tạo `XUAT_CHAM_CONG`; các cột bổ sung gồm giờ vào/ra được ghép, số lần log trong cửa sổ ca, số giờ giữa hai lần ghép và trạng thái cần kiểm tra.
-- Ghép log tự động hiện dùng cửa sổ 2 giờ trước giờ bắt đầu đến 2 giờ sau giờ kết thúc. Ca qua đêm được tính sang ngày hôm sau. Hãy chạy thử với một tháng mẫu và kiểm tra thủ công trước khi dùng tính lương; nếu máy ghi log nhiều lần hoặc có quy tắc nghỉ giữa ca riêng, cần hiệu chỉnh quy tắc ghép theo thực tế.
+Bản này được sửa tĩnh; cần kiểm tra với Google Sheets và quyền triển khai thực tế trước khi dùng chính thức.
