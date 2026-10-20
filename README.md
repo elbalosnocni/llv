@@ -33,3 +33,11 @@
 - `setupSystem()` lưu lại mật khẩu Admin/HR mới và khởi tạo tab còn thiếu. Không chạy lại nếu không muốn đổi mật khẩu Admin/HR.
 - Bản V2 giữ Spreadsheet ID và tên tab lịch hiện tại, nhưng hãy sao lưu trước. Các cột lịch mới có thêm `Người cập nhật`; dữ liệu cũ được giữ khi tab được chuẩn hóa.
 - Bản này đã kiểm tra cú pháp JavaScript tĩnh, chưa thể kiểm chứng quyền truy cập/triển khai trực tiếp trên tài khoản Google của bạn. Cần thử bằng tài khoản và dữ liệu sao lưu trước khi dùng chính thức.
+
+
+## Đối chiếu log máy chấm công (bổ sung)
+- Nguồn log mặc định: Spreadsheet `1LshZZc_Pqf2hTq6CCC-6y69RjOPZoylYbGroaAqUrNM`. Cột C = mã chấm công; cột D = thời gian bấm thẻ.
+- Mặc định code đọc tab đầu tiên của file log. Nếu log nằm ở tab khác, điền tên tab chính xác vào `ATTENDANCE_LOG_SHEET_NAME` trong `Code.gs`.
+- Tài khoản triển khai Apps Script phải có quyền xem file log.
+- HR/Admin dùng chức năng tạo bảng chấm công để tái tạo `XUAT_CHAM_CONG`; các cột bổ sung gồm giờ vào/ra được ghép, số lần log trong cửa sổ ca, số giờ giữa hai lần ghép và trạng thái cần kiểm tra.
+- Ghép log tự động hiện dùng cửa sổ 2 giờ trước giờ bắt đầu đến 2 giờ sau giờ kết thúc. Ca qua đêm được tính sang ngày hôm sau. Hãy chạy thử với một tháng mẫu và kiểm tra thủ công trước khi dùng tính lương; nếu máy ghi log nhiều lần hoặc có quy tắc nghỉ giữa ca riêng, cần hiệu chỉnh quy tắc ghép theo thực tế.

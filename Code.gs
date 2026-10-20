@@ -2,13 +2,18 @@
  * Chạy setupSystem('MAT_KHAU_ADMIN_MOI') một lần trong Apps Script trước khi dùng.
  */
 const SPREADSHEET_ID = '1GSPgNkJGz2igyKwP4lrCB6oNiuGb8PSjPw8zrgcHMOI';
+// Sheet log máy chấm công riêng; mặc định đọc tab đầu tiên. Có thể điền tên tab cụ thể nếu cần.
+const ATTENDANCE_LOG_SPREADSHEET_ID = '1LshZZc_Pqf2hTq6CCC-6y69RjOPZoylYbGroaAqUrNM';
+const ATTENDANCE_LOG_SHEET_NAME = ''; // Để trống = dùng tab đầu tiên trong file log.
+const LOG_CODE_COL = 3; // C: Mã chấm công
+const LOG_TIME_COL = 4; // D: Thời gian bấm công
 const SH = {
   schedule: ['Tháng','Mã NV','Mã chấm công','Họ tên','Phòng ban','Bộ phận','Chức vụ','Ngày','Ca trực','Cập nhật lúc','Người cập nhật'],
   submissions: ['ID','Tháng','Bộ phận','Người gửi','Gửi lúc','Trạng thái','Dữ liệu JSON','Duyệt lúc','Ghi chú'],
   shifts: ['Mã ca','Tên ca','Giờ bắt đầu','Giờ kết thúc','Màu sắc','Đang sử dụng'],
   depts: ['Bộ phận','Mật khẩu','Đang sử dụng','Cập nhật lúc'],
   audit: ['Thời gian','Vai trò','Bộ phận','Hành động','Chi tiết'],
-  attendance: ['Thời gian xuất','Tháng','Mã NV','Mã chấm công','Họ tên','Phòng ban','Bộ phận','Chức vụ','Ngày','Ca trực']
+  attendance: ['Thời gian xuất','Tháng','Mã NV','Mã chấm công','Họ tên','Phòng ban','Bộ phận','Chức vụ','Ngày','Ca trực','Giờ vào thực tế','Giờ ra thực tế','Số lần bấm','Số giờ giữa vào/ra','Trạng thái đối chiếu','Chi tiết log']
 };
 function doGet(e) {
   try {
@@ -57,7 +62,82 @@ function validateEmployees_(list,month,dept,shifts){const errors=[],known={};shi
 function saveDepartment_(ss,b){const dept=String(b.department||'').trim(),pw=String(b.password||'');if(!dept||!pw)return {status:'error',message:'Cần nhập tên bộ phận và mật khẩu.'};if(pw.length<6)return {status:'error',message:'Mật khẩu bộ phận tối thiểu 6 ký tự.'};const s=ensure_(ss,'BO_PHAN',SH.depts),v=s.getDataRange().getValues();let row=-1;for(let i=1;i<v.length;i++)if(String(v[i][0]).trim()===dept){row=i+1;break;}const vals=[dept,hash_(pw),true,new Date()];if(row>0)s.getRange(row,1,1,4).setValues([vals]);else s.appendRow(vals);audit_(ss,'ADMIN','', 'CẬP NHẬT BỘ PHẬN',dept);return {status:'success',message:'Đã lưu bộ phận '+dept};}
 function deleteDepartment_(ss,b){const dept=String(b.department||'').trim(),s=ss.getSheetByName('BO_PHAN');if(s&&s.getLastRow()>1){const v=s.getDataRange().getValues();for(let i=v.length-1;i>=1;i--)if(String(v[i][0]).trim()===dept)s.deleteRow(i+1);}audit_(ss,'ADMIN','','NGỪNG BỘ PHẬN',dept);return {status:'success',message:'Đã xóa/ngừng bộ phận '+dept};}
 function saveShifts_(ss,shifts){if(!Array.isArray(shifts))return {status:'error',message:'Danh sách ca không hợp lệ.'};const seen={};for(const x of shifts){if(!String(x.code||'').trim()||!String(x.name||'').trim())return {status:'error',message:'Mỗi ca cần mã và tên.'};const k=String(x.name).trim().toLowerCase();if(seen[k])return {status:'error',message:'Tên ca bị trùng: '+x.name};seen[k]=1;const code=String(x.code||'').trim().toUpperCase();const name=String(x.name||'').trim().toLowerCase();const isOff=['OFF','AL'].includes(code)||['nghỉ','nghi','nghỉ phép','nghi phep'].includes(name);const start=String(x.start||'').trim();const end=String(x.end||'').trim();if(isOff){if((start&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(start))||(end&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(end)))return {status:'error',message:'Nếu nhập giờ cho ca nghỉ, giờ phải theo HH:MM.'};}else if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(start)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(end))return {status:'error',message:'Ca làm việc phải có giờ bắt đầu và kết thúc theo HH:MM. Ca Nghỉ/Nghỉ phép có thể để trống giờ.'};}const s=ensure_(ss,'CA_KIP',SH.shifts);s.clearContents();s.getRange(1,1,1,SH.shifts.length).setValues([SH.shifts]);if(shifts.length)s.getRange(2,1,shifts.length,6).setValues(shifts.map(x=>[x.code,x.name,x.start,x.end,x.color||'#dbeafe',x.active!==false]));s.setFrozenRows(1);audit_(ss,'ADMIN','','CẬP NHẬT CA KÍP',shifts.length+' ca');return {status:'success',message:'Đã lưu '+shifts.length+' ca kíp.'};}
-function exportAttendance_(ss,month){if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};const data=getSchedule_(ss,month);if(data.status!=='success')return data;const s=ensure_(ss,'XUAT_CHAM_CONG',SH.attendance),now=new Date(),rows=[];data.employees.forEach(e=>Object.keys(e.shifts).sort().forEach(d=>rows.push([now,month,e.id,e.maChamCong,e.name,e.dept,e.section,e.position,d,e.shifts[d]])));s.clearContents();s.getRange(1,1,1,SH.attendance.length).setValues([SH.attendance]);if(rows.length)s.getRange(2,1,rows.length,SH.attendance.length).setValues(rows);audit_(ss,'HR/ADMIN','','XUẤT CHẤM CÔNG',month+' / '+rows.length+' dòng');return {status:'success',message:'Đã tạo bảng XUAT_CHAM_CONG.',rows:rows.length,sheet:'XUAT_CHAM_CONG'};}
+function exportAttendance_(ss,month){
+  if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};
+  const data=getSchedule_(ss,month);if(data.status!=='success')return data;
+  const logs=readAttendanceLogs_(month), shifts=readShifts_(ss), shiftMap={};
+  shifts.forEach(x=>shiftMap[String(x.name||'').trim().toLowerCase()]=x);
+  const now=new Date(),rows=[];
+  data.employees.forEach(e=>Object.keys(e.shifts||{}).sort().forEach(d=>{
+    const shiftName=String(e.shifts[d]||'').trim(), shift=shiftMap[shiftName.toLowerCase()]||null;
+    const code=normalizeClockCode_(e.maChamCong||e.id);
+    const dayLogs=(logs.byCode[code]||[]);
+    const pair=matchPunchesToShift_(dayLogs,d,shift);
+    rows.push([now,month,e.id,e.maChamCong,e.name,e.dept,e.section,e.position,d,shiftName,
+      pair.inTime||'',pair.outTime||'',pair.count,pair.hours===null?'':pair.hours,pair.status,pair.detail]);
+  }));
+  const s=ensure_(ss,'XUAT_CHAM_CONG',SH.attendance);s.clearContents();s.getRange(1,1,1,SH.attendance.length).setValues([SH.attendance]);
+  if(rows.length){s.getRange(2,1,rows.length,SH.attendance.length).setValues(rows);s.getRange(2,11,rows.length,2).setNumberFormat('yyyy-mm-dd hh:mm:ss');s.getRange(2,14,rows.length,1).setNumberFormat('0.00');}
+  audit_(ss,'HR/ADMIN','','ĐỐI CHIẾU LOG CHẤM CÔNG',month+' / '+rows.length+' dòng');
+  return {status:'success',message:'Đã đối chiếu lịch với log máy chấm công và tạo bảng XUAT_CHAM_CONG.',rows:rows.length,logRows:logs.rows,sheet:'XUAT_CHAM_CONG',unmatched:logs.unmatched};
+}
+function readAttendanceLogs_(month){
+  const out={byCode:{},rows:0,unmatched:0};
+  const logSS=SpreadsheetApp.openById(ATTENDANCE_LOG_SPREADSHEET_ID);
+  const sh=ATTENDANCE_LOG_SHEET_NAME?logSS.getSheetByName(ATTENDANCE_LOG_SHEET_NAME):logSS.getSheets()[0];
+  if(!sh)throw new Error('Không tìm thấy tab log máy chấm công. Kiểm tra ATTENDANCE_LOG_SHEET_NAME.');
+  const last=sh.getLastRow();if(last<2)return out;
+  // Display values giữ nguyên số 0 đầu của mã chấm công; raw values dùng để đọc thời gian.
+  const display=sh.getRange(1,1,last,Math.max(LOG_CODE_COL,LOG_TIME_COL)).getDisplayValues();
+  const raw=sh.getRange(1,1,last,Math.max(LOG_CODE_COL,LOG_TIME_COL)).getValues();
+  const startDate=new Date(month+'-01T00:00:00');startDate.setDate(startDate.getDate()-1);const start=Utilities.formatDate(startDate,Session.getScriptTimeZone(),'yyyy-MM-dd');const nextDate=new Date(nextMonth_(month)+'T00:00:00');nextDate.setDate(nextDate.getDate()+1);const next=Utilities.formatDate(nextDate,Session.getScriptTimeZone(),'yyyy-MM-dd');
+  for(let i=1;i<last;i++){
+    const code=normalizeClockCode_(display[i][LOG_CODE_COL-1]);
+    const dt=parsePunchDate_(raw[i][LOG_TIME_COL-1],display[i][LOG_TIME_COL-1]);
+    if(!code||!dt){out.unmatched++;continue;}
+    const dateKey=Utilities.formatDate(dt,Session.getScriptTimeZone(),'yyyy-MM-dd');
+    if(dateKey<start||dateKey>=next)continue;
+    if(!out.byCode[code])out.byCode[code]=[];
+    out.byCode[code].push(dt);out.rows++;
+  }
+  Object.keys(out.byCode).forEach(k=>out.byCode[k].sort((a,b)=>a-b));
+  return out;
+}
+function matchPunchesToShift_(allLogs,dateStr,shift){
+  if(!shift||isOffShift_(shift))return {inTime:'',outTime:'',count:0,hours:null,status:'Không tính công',detail:'Ca nghỉ/không tìm thấy cấu hình giờ ca'};
+  const startMin=timeMinutes_(shift.start),endMin=timeMinutes_(shift.end);
+  if(startMin===null||endMin===null)return {inTime:'',outTime:'',count:0,hours:null,status:'Thiếu cấu hình',detail:'Chưa cấu hình giờ bắt đầu/kết thúc ca'};
+  const base=new Date(dateStr+'T00:00:00');
+  const start=new Date(base.getTime()+startMin*60000),end=new Date(base.getTime()+endMin*60000);
+  if(endMin<=startMin)end.setDate(end.getDate()+1); // ca qua nửa đêm
+  // Cửa sổ nhận diện log: 2 giờ trước giờ vào đến 2 giờ sau giờ ra.
+  const winStart=new Date(start.getTime()-2*3600000),winEnd=new Date(end.getTime()+2*3600000);
+  const punches=allLogs.filter(t=>t>=winStart&&t<=winEnd);
+  if(!punches.length)return {inTime:'',outTime:'',count:0,hours:null,status:'Thiếu log vào/ra',detail:'Không có log trong cửa sổ ca'};
+  // Chọn log vào gần đầu ca nhất ở phía trước/đầu ca; log ra gần cuối ca nhất ở phía sau/đến cuối ca.
+  let ins=punches.filter(t=>t<=new Date(start.getTime()+2*3600000));
+  let outs=punches.filter(t=>t>=new Date(end.getTime()-2*3600000));
+  let tin=ins.length?ins.reduce((best,t)=>Math.abs(t-start)<Math.abs(best-start)?t:best):null;
+  let tout=outs.length?outs.reduce((best,t)=>Math.abs(t-end)<Math.abs(best-end)?t:best):null;
+  if(tin&&tout&&tout<=tin)tout=null;
+  const fmt=t=>t?Utilities.formatDate(t,Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss'):'';
+  const hours=tin&&tout?Math.round(((tout-tin)/3600000)*100)/100:null;
+  let status='Đủ log';if(!tin||!tout)status='Cần kiểm tra';
+  const detail=(!tin?'Thiếu log vào; ':'')+(!tout?'Thiếu log ra; ':'')+(tin&&tout?'Đã ghép log gần giờ ca dự kiến':'');
+  return {inTime:fmt(tin),outTime:fmt(tout),count:punches.length,hours,status,detail};
+}
+function parsePunchDate_(raw,display){
+  if(raw instanceof Date&&!isNaN(raw.getTime()))return raw;
+  if(typeof raw==='number'&&raw>0)return new Date(Math.round((raw-25569)*86400000));
+  const s=String(display||raw||'').trim();if(!s)return null;
+  let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})(?:[ T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/);
+  if(m)return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0),Number(m[6]||0));
+  const d=new Date(s);return isNaN(d.getTime())?null:d;
+}
+function normalizeClockCode_(v){return String(v==null?'':v).trim().replace(/\s+/g,'');}
+function timeMinutes_(v){const m=String(v||'').match(/^(\d{1,2}):(\d{2})/);return m?Number(m[1])*60+Number(m[2]):null;}
+function isOffShift_(s){const n=String(s.name||'').trim().toLowerCase(),c=String(s.code||'').trim().toUpperCase();return c==='OFF'||c==='AL'||['nghỉ','nghi','nghỉ phép','nghi phep'].includes(n);}
+function nextMonth_(m){const p=m.split('-').map(Number);return Utilities.formatDate(new Date(p[0],p[1],1),Session.getScriptTimeZone(),'yyyy-MM-dd');}
 function getStatus_(ss,month){if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};const s=ss.getSheetByName('LICH_GUI_DUYET');if(!s||s.getLastRow()<2)return {status:'success',submissions:[]};return {status:'success',submissions:s.getDataRange().getValues().slice(1).filter(r=>String(r[1])===month).map(r=>({month:r[1],department:r[2],submittedAt:r[4],status:r[5]}))};}
 function readDepartments_(ss){const s=ss.getSheetByName('BO_PHAN');if(!s||s.getLastRow()<2)return [];return s.getDataRange().getValues().slice(1).filter(r=>r[0]&&r[2]!==false).map(r=>({department:String(r[0]),active:r[2]!==false}));}
 function readShifts_(ss){const s=ss.getSheetByName('CA_KIP');if(!s||s.getLastRow()<2)return [];return s.getDataRange().getValues().slice(1).filter(r=>r[0]&&r[1]).map(r=>({code:String(r[0]),name:String(r[1]),start:String(r[2]),end:String(r[3]),color:String(r[4]||'#dbeafe'),active:r[5]!==false}));}
