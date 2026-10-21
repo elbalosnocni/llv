@@ -24,3 +24,15 @@
 - Điều chuyển hiện ghi nhận trong `DIEU_CHUYEN_NV` và có thể cập nhật các dòng lịch từ ngày hiệu lực, nhưng không sửa tab `NHAN VIEN` gốc và không tự thay đổi quyền truy cập bộ phận.
 - Tự động snapshot được gọi trước công bố lịch, nhập trực tiếp, duyệt yêu cầu sửa ca và điều chuyển theo lựa chọn cập nhật. Nên sao lưu Google Sheet độc lập trước lần triển khai đầu tiên.
 - Đây là mã được kiểm tra cú pháp tĩnh; chưa thể xác nhận hành vi với spreadsheet, mật khẩu, phân quyền và deployment thực tế của chủ sở hữu.
+
+## Bản vá hiển thị mã ca và chú thích (21/10/2026)
+- Ô lịch dùng mã ca nếu giá trị lịch khớp mã hoặc tên ca hiện tại; không để tên ca dài làm phình ô.
+- Nút chú thích dùng thao tác mở/đóng rõ ràng, hỗ trợ chạm trên điện thoại và cập nhật `aria-expanded`.
+- Giá trị lịch cũ không khớp ca hiện tại được rút gọn và vẫn bấm xem được thông báo đối chiếu. Nếu tên ca cũ đã bị đổi trong `CA_KIP`, hệ thống không thể tự suy ra mã ca cũ một cách an toàn; cần đối chiếu các giá trị cũ trong `LICH_THANG` rồi chuẩn hóa sang mã ca.
+
+## Quy tắc ngày nghỉ tuần/ngày lễ (bản cập nhật)
+- `LICH_NGAY` là nguồn xác định loại ngày: `WEEKLY_OFF` (OFF) hoặc `LEGAL_HOLIDAY` (H).
+- Khi nhân viên không có phân ca thực tế, trang tra cứu hiển thị OFF/H theo loại ngày và cho chạm để xem giải thích.
+- Khi Admin phân ca thực tế vào ngày OFF/H, `LICH_THANG` lưu mã ca (ví dụ C1/C2/C3); giao diện hiển thị mã ca thay cho OFF/H, còn màu nền/chi tiết vẫn giữ loại ngày gốc từ `LICH_NGAY`.
+- Vì vậy không tạo mã ca làm giả cho OFF/H và không thay đổi loại ngày chỉ vì nhân viên được phân làm. Hãy phân ca bằng màn hình Admin nhập lịch trực tiếp, chọn mã ca làm thực tế cho đúng nhân viên/ngày.
+- Sau khi cập nhật, kiểm thử trên bản sao Google Sheet trước. Việc tính công/lương ngày nghỉ tuần/ngày lễ cần được xác minh riêng theo quy định công ty.
