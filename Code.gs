@@ -38,6 +38,8 @@ function doPost(e) {
       case 'schedule_submit': return out_(submitSchedule_(ss,b));
       case 'department_approve': return out_(approveDepartment_(ss,b));
       case 'admin_get_config': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_({status:'success',departments:readDepartments_(ss),shifts:readShifts_(ss)});
+      case 'admin_get_employees': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_({status:'success',employees:readCurrentEmployees_(ss)});
+      case 'admin_direct_assign': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_(directAssign_(ss,b));
       case 'admin_save_department': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_(saveDepartment_(ss,b));
       case 'admin_delete_department': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_(deleteDepartment_(ss,b));
       case 'admin_save_shifts': if(!isAdmin_(b.adminPassword))return out_(denied_());return out_(saveShifts_(ss,b.shifts));
@@ -109,6 +111,28 @@ function publishDept_(ss,month,dept,employees){
   SpreadsheetApp.flush();
   return rows.length;
 }
+
+function readCurrentEmployees_(ss){
+  const sh=ss.getSheetByName('NHAN VIEN'); if(!sh||sh.getLastRow()<2)return [];
+  const vals=sh.getDataRange().getDisplayValues(), headers=vals[0].map(normalizeShiftKey_);
+  const aliases={name:['hoten','ho ten'],id:['manv','ma nv'],clock:['machamcong','ma cham cong'],cccd:['socancuoc','so can cuoc'],dept:['phongban','phong ban'],section:['bophan','bo phan'],position:['chucvu','chuc vu'],leader:['totruong','to truong']};
+  const ix={};Object.keys(aliases).forEach(k=>ix[k]=headers.findIndex(h=>aliases[k].includes(h)));
+  if(ix.name<0||ix.id<0)return [];
+  const out=[],seen={};for(let i=1;i<vals.length;i++){const r=vals[i],id=String(r[ix.id]||'').trim(),name=String(r[ix.name]||'').trim();if(!id||!name||seen[id])continue;seen[id]=1;out.push({id,maChamCong:ix.clock<0?'':String(r[ix.clock]||''),name,soCanCuoc:ix.cccd<0?'':String(r[ix.cccd]||''),dept:ix.dept<0?'':String(r[ix.dept]||''),section:ix.section<0?'':String(r[ix.section]||''),position:ix.position<0?'':String(r[ix.position]||''),leader:ix.leader<0?'':String(r[ix.leader]||'')});}return out;
+}
+function directAssign_(ss,b){
+  const month=String(b.month||''),dept=String(b.department||'').trim(),items=b.assignments;
+  if(!validMonth_(month))return {status:'error',message:'Tháng không hợp lệ.'};
+  if(!dept||!Array.isArray(items)||!items.length)return {status:'error',message:'Chọn bộ phận và ít nhất một phân ca.'};
+  const roster=readCurrentEmployees_(ss),byId={};roster.forEach(e=>byId[e.id]=e);
+  const shifts=readShifts_(ss).filter(x=>x.active),shiftMap={};shifts.forEach(x=>{shiftMap[x.code.toLowerCase()]=x;shiftMap[x.name.toLowerCase()]=x;});
+  const max=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate(),prepared=[],errors=[];
+  items.forEach((a,i)=>{const e=byId[String(a.employeeId||'').trim()],d=String(a.date||''),raw=String(a.shift||'').trim(),sh=shiftMap[raw.toLowerCase()];if(!e)errors.push('Nhân viên không còn trong NHAN VIEN: '+a.employeeId);else if(e.section!==dept)errors.push(e.name+' không thuộc bộ phận '+dept);if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||d.slice(0,7)!==month||Number(d.slice(-2))<1||Number(d.slice(-2))>max)errors.push('Ngày không hợp lệ: '+d);if(!sh)errors.push('Mã ca không hợp lệ: '+raw);if(e&&sh&&d.slice(0,7)===month)prepared.push([month,e.id,e.maChamCong,e.name,e.dept,e.section,e.position,d,sh.code,new Date(),String(b.adminName||'ADMIN')]);});
+  if(errors.length)return {status:'error',message:'Không lưu lịch vì có lỗi: '+errors.slice(0,8).join('; ')};
+  if(!prepared.length)return {status:'error',message:'Không có phân ca hợp lệ.'};
+  const lock=LockService.getScriptLock();lock.waitLock(20000);try{const sh=ensure_(ss,'LICH_THANG',SH.schedule),old=sh.getDataRange().getValues(),replace={};prepared.forEach(r=>replace[r[1]+'|'+r[7]]=r);const keep=[SH.schedule];for(let i=1;i<old.length;i++){const r=old[i],key=String(r[1]||'')+'|'+date_(r[7]);if(month_(r[0])===month&&String(r[5]||'').trim()===dept&&replace[key])continue;keep.push(r.slice(0,SH.schedule.length));}const existing={};keep.slice(1).forEach(r=>existing[String(r[1]||'')+'|'+date_(r[7])+'|'+String(r[5]||'').trim()]=1);prepared.forEach(r=>{const key=r[1]+'|'+r[7]+'|'+dept;if(!existing[key])keep.push(r);else{for(let i=1;i<keep.length;i++)if(String(keep[i][1]||'')===r[1]&&date_(keep[i][7])===r[7]&&month_(keep[i][0])===month&&String(keep[i][5]||'').trim()===dept){keep[i]=r;break;}}});sh.clearContents();sh.getRange(1,1,keep.length,SH.schedule.length).setValues(keep);sh.setFrozenRows(1);SpreadsheetApp.flush();audit_(ss,'ADMIN',dept,'NHẬP LỊCH TRỰC TIẾP',month+' / '+prepared.length+' phân ca');return {status:'success',message:'Đã lưu '+prepared.length+' phân ca trực tiếp. Lịch tháng khác và lịch nhân viên đã nghỉ không bị xóa.',rows:prepared.length};}finally{lock.releaseLock();}
+}
+
 function normalizeShiftKey_(value){return String(value==null?'':value).trim().toLocaleLowerCase('vi').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ');}
 function resolveShift_(value,shifts){
   const raw=normalizeShiftKey_(value);if(!raw)return null;

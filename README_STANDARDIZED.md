@@ -38,3 +38,17 @@
 
 ## Lưu ý phạm vi
 Các yêu cầu lớn như nhập lịch trực tiếp trên web theo bộ phận/chức vụ/kíp/tổ trưởng, đồng bộ danh sách nhân viên mới nhất từ `NHAN VIEN`, và quy tắc chuyển bộ phận/tổ “cập nhật lịch hay giữ nguyên” chưa được triển khai trong bản giao diện này. Cần bổ sung API và màn hình quản trị tương ứng trước khi dùng thay thế hoàn toàn quy trình nhập lịch hiện tại.
+
+
+## Bản nâng cấp giao diện và nhập lịch trực tiếp
+- `index.html`: trên điện thoại ô ca hiển thị cả mã ca và tên ca; giờ làm vẫn có trong tooltip/aria label. Chú thích ca được thu gọn mặc định và mở bằng nút.
+- `admin.html`: Admin có mục “Nhập lịch trực tiếp trên web”, đọc danh sách hiện tại từ `NHAN VIEN`, lọc theo bộ phận/chức vụ/tổ trưởng, chọn nhiều nhân viên và gán ca cho một ngày mà không cần tải Excel.
+- `Code.gs`: thêm API `admin_get_employees` và `admin_direct_assign`; xác thực Admin, kiểm tra ngày/tháng/nhân viên/bộ phận/mã ca trước khi ghi, dùng khóa ghi và nhật ký thao tác. Chỉ cập nhật đúng tháng/bộ phận/ngày được chọn; không xóa lịch tháng khác hoặc các nhân viên lịch sử không còn trong danh sách hiện tại.
+- Sau khi cập nhật `Code.gs`, cần deploy Apps Script thành phiên bản mới. Cập nhật `index.html` và `admin.html` trên nơi đang host.
+
+## Phạm vi chưa hoàn tất trong bản này
+- Công nhân tự gửi yêu cầu đổi ca và quy trình phê duyệt yêu cầu.
+- Chuyển bộ phận/tổ có lựa chọn giữ lịch tương lai hay tái phân lịch theo ngày hiệu lực.
+- Ngày nghỉ theo phạm vi bộ phận/nhóm (tab `LICH_NGAY` hiện vẫn là phạm vi toàn công ty).
+- Màn hình nhập hàng loạt nhiều ngày cho một nhóm trong cùng thao tác; bản trực tiếp hiện gán một ngày/ca cho nhiều nhân viên mỗi lần.
+- Lịch sử phiên bản/khôi phục lịch đầy đủ; nên sao lưu Google Sheet trước khi triển khai.
